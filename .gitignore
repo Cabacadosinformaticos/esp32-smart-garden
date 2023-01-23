@@ -1,0 +1,22 @@
+# Local secrets (copy secrets.example.h to secrets.h and fill it in)
+firmware/esp32_smart_garden/secrets.h
+
+# Editor and Office junk
+.idea/
+.vscode/
+~$*
+~WRL*.tmp
+*.tmp
+
+# Build outputs
+build/
+bin/
+obj/
+__pycache__/
+
+# Agent files
+CLAUDE.md
+AGENTS.md
+.claude/
+.codex/
+.mcp.json
