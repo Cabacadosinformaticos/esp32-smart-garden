@@ -18,8 +18,20 @@ void setup() {
 }
 
 void loop() {
+  int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
+  float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
+  float soilhumidity = (voltage - 0.92) / 0.08; // Calcula a humidade do solo a partir da voltagem lida do sensor de humidade do solo e converte o valor para uma escala de 0 a 100
+  int waterSensorValue = digitalRead(waterSensorPin); // Lê o valor do sensor de líquidos sem contacto
   float humidity = dht.readHumidity(); // Lê a humidade relativa do ar a partir do sensor de humidade e temperatura DHT
   float temperature = dht.readTemperature(); // Lê a temperatura a partir do sensor de humidade e temperatura DHT
+  int lightSensorValue = analogRead(lightSensorPin); // Lê o valor do sensor de intensidade luminosa
+  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converte o valor lido do sensor de intensidade luminosa para uma escala de 0 a 100
+
+  Serial.println("--- Medições ---");
+    // Mostra o resultado no monitor serial
+    Serial.print("Humidade do solo: ");
+    Serial.print(soilhumidity, 2);
+    Serial.println("%");
 
   Serial.print("Sensor de humidade e temperatura: ");
   Serial.print("Humidade = ");
@@ -27,6 +39,18 @@ void loop() {
   Serial.print("%, Temperatura = ");
   Serial.print(temperature);
   Serial.println(" ºC");
+  Serial.print("Sensor de luminosidade: ");
+  Serial.print("Intensidade de luz = ");
+  Serial.print(lightIntensity);
+  Serial.println("%");
+
+  // Verifica se existe agua no tanque e apresenta o resultado no monitor Serial
+  Serial.print("Sensor de líquidos sem contacto: ");
+  if (waterSensorValue == LOW) {
+    Serial.println("Nenhum líquido detectado");
+  } else {
+    Serial.println("Líquido detectado");
+  }
 
   delay(1000); // Espera um segundo antes de executar o ciclo novamente
 }
