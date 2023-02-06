@@ -4,6 +4,9 @@ const int lightSensorPin = 34; // Pino do sensor de luminosidade KY-018 ligado a
 const int waterSensorPin = 35; // Pino do sensor de líquidos sem contacto ligado ao pino A1 do Arduino
 const int soilSensorPin = 32; // Pino do sensor de humidade do solo ligado ao pino A2 do Arduino
 
+bool tankEmptySent = false; //Inicializa a variavel tankEmptySent
+bool pumpworking = false; //Inicializa a variavel pumpworking
+
 #include <DHT.h> // Inclui a biblioteca DHT no programa para permitir a utilização do sensor de humidade e temperatura
 #define DHTTYPE DHT11 // Define o tipo de sensor DHT que está a ser utilizado (DHT11 neste caso)
 DHT dht(dhtSensorPin, DHTTYPE); // Cria uma instância da biblioteca DHT com o pino do sensor DHT e o tipo definido anteriormente
@@ -32,6 +35,28 @@ void loop() {
     Serial.print("Humidade do solo: ");
     Serial.print(soilhumidity, 2);
     Serial.println("%");
+
+    // Verifica se a humidade do solo está abaixo de 30% e existe agua no tanque, caso os dois sejam verdade inicia a rega
+    if (soilhumidity < 30) {
+      if (waterSensorValue == LOW && tankEmptySent == false) {
+        Serial.println("O tanque de água está vazio, não é possível regar a planta.");
+        tankEmptySent = true;
+         
+      }
+      if (waterSensorValue == HIGH) {
+        digitalWrite(relayPin, HIGH); // Liga o relé
+        Serial.println("Regando a planta...");
+        tankEmptySent = false;
+        pumpworking = true;
+      }
+    }
+
+    // Verifica se a humidade do solo está acima de 70% ou se já não existe agua no tanque, caso um deles seja verdade para a rega
+    if (soilhumidity > 70 || waterSensorValue == LOW) {
+      digitalWrite(relayPin, LOW); // Desliga o relé
+      Serial.println("Parando de regar a planta...");
+      pumpworking = false;
+    }
 
   Serial.print("Sensor de humidade e temperatura: ");
   Serial.print("Humidade = ");
