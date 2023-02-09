@@ -7,9 +7,13 @@ const int soilSensorPin = 32; // Pino do sensor de humidade do solo ligado ao pi
 bool tankEmptySent = false; //Inicializa a variavel tankEmptySent
 bool pumpworking = false; //Inicializa a variavel pumpworking
 
+#include <WiFi.h> // Inclui a biblioteca WiFi no programa para permitir a conexão com redes Wi-Fi
 #include <DHT.h> // Inclui a biblioteca DHT no programa para permitir a utilização do sensor de humidade e temperatura
 #define DHTTYPE DHT11 // Define o tipo de sensor DHT que está a ser utilizado (DHT11 neste caso)
 DHT dht(dhtSensorPin, DHTTYPE); // Cria uma instância da biblioteca DHT com o pino do sensor DHT e o tipo definido anteriormente
+
+const char* ssid = "YOUR_WIFI_SSID"; // Define o nome da rede Wi-Fi (SSID) à qual o dispositivo se conectará
+const char* password = "YOUR_WIFI_PASSWORD"; // Define a senha da rede Wi-Fi à qual o dispositivo se conectará
 
 void setup() {
   Serial.begin(9600); // Inicia a comunicação serial
@@ -18,6 +22,18 @@ void setup() {
   pinMode(lightSensorPin, INPUT); // Define o pino do sensor de luminosidade KY-018 como entrada
   pinMode(soilSensorPin, INPUT); // Define o pino do sensor de humidade do solo como entrada
   pinMode(relayPin, OUTPUT); // Define o pino do relé como saída
+  
+  // Faz a ligação á rede Wifi
+  WiFi.begin(ssid, password);
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
+  Serial.println(WiFi.localIP());
+
 }
 
 void loop() {
