@@ -4,16 +4,28 @@ const int lightSensorPin = 34; // Pino do sensor de luminosidade KY-018 ligado a
 const int waterSensorPin = 35; // Pino do sensor de líquidos sem contacto ligado ao pino A1 do Arduino
 const int soilSensorPin = 32; // Pino do sensor de humidade do solo ligado ao pino A2 do Arduino
 
+bool notWorkSent = false; //Inicializa a variavel tankEmptySent
 bool tankEmptySent = false; //Inicializa a variavel tankEmptySent
 bool pumpworking = false; //Inicializa a variavel pumpworking
+bool lowTempSent = false; //Inicializa a variavel lowTempSent
+bool highTempSent = false; //Inicializa a variavel highTempSent
 
 #include <WiFi.h> // Inclui a biblioteca WiFi no programa para permitir a conexão com redes Wi-Fi
+#include <HTTPClient.h> // Inclui a biblioteca HTTPClient no programa para fazer solicitações HTTP a um servidor
+#include <UrlEncode.h> // Inclui a biblioteca UrlEncode no programa para codificar URLs para serem enviadas como parâmetros nas solicitações HTTP
 #include <DHT.h> // Inclui a biblioteca DHT no programa para permitir a utilização do sensor de humidade e temperatura
 #define DHTTYPE DHT11 // Define o tipo de sensor DHT que está a ser utilizado (DHT11 neste caso)
 DHT dht(dhtSensorPin, DHTTYPE); // Cria uma instância da biblioteca DHT com o pino do sensor DHT e o tipo definido anteriormente
 
+
 const char* ssid = "YOUR_WIFI_SSID"; // Define o nome da rede Wi-Fi (SSID) à qual o dispositivo se conectará
 const char* password = "YOUR_WIFI_PASSWORD"; // Define a senha da rede Wi-Fi à qual o dispositivo se conectará
+
+// +international_country_code + phone number
+// Portugal +351, example: +351912345678 
+String phoneNumber = "+351XXXXXXXXX"; // Define o número de telefone que receberá mensagens de texto (número do pais + numero de telefone)
+String apiKey = "YOUR_CALLMEBOT_API_KEY"; // Define a chave da API usada para enviar mensagens de texto
+
 
 void setup() {
   Serial.begin(9600); // Inicia a comunicação serial
@@ -36,7 +48,31 @@ void setup() {
 
 }
 
+// Função que envia uma mensagem de texto para o número de telefone especificado
+void sendMessage(String message){
+
+  String url = "https://api.callmebot.com/whatsapp.php?phone=" + phoneNumber + "&apikey=" + apiKey + "&text=" + urlEncode(message); // Cria a URL com as informações necessárias para enviar a mensagem de texto através da API do CallMeBot
+  HTTPClient http; // Inicia uma solicitação HTTP POST usando a URL criada anteriormente
+  http.begin(url);
+
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded"); // Define o cabeçalho Content-Type como application/x-www-form-urlencoded
+  
+  int httpResponseCode = http.POST(url); // Envia a solicitação HTTP POST e armazena o código de resposta HTTP em uma variável
+  if (httpResponseCode == 200){ // Verifica se a mensagem foi enviada com sucesso e imprime uma mensagem no monitor serial
+    Serial.print("Message sent successfully");
+  }
+  else{
+    Serial.println("Error sending the message");
+    Serial.print("HTTP response code: ");
+    Serial.println(httpResponseCode);
+  }
+
+  http.end(); // Liberta os recursos usados na solicitação HTTP
+}
+
 void loop() {
+
+  
   int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
   float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
   float soilhumidity = (voltage - 0.92) / 0.08; // Calcula a humidade do solo a partir da voltagem lida do sensor de humidade do solo e converte o valor para uma escala de 0 a 100
@@ -47,6 +83,26 @@ void loop() {
   float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converte o valor lido do sensor de intensidade luminosa para uma escala de 0 a 100
 
   Serial.println("--- Medições ---");
+  ("Sensor de humidade do solo: ");
+  // Verifica se o valor lido pelo sensor de humidade do solo está dentro do intervalo válido (0-100%)
+  // Se o valor estiver fora do intervalo, envia uma mensagem de erro e define notWorkSent como true
+  // Caso contrário, mostra a humidade do solo e verifica se é necessário regar a planta ou não
+  if (soilhumidity < 0 || soilhumidity > 100) {
+    
+    if (!notWorkSent) {
+    
+    Serial.println("Erro: Valor de humidade fora do intervalo válido (0-100%)");
+    
+    sendMessage("O sensor de humidade nao está a funcionar!");
+    
+    notWorkSent = true;
+
+    }
+       
+   } else if (soilhumidity >= 0 && soilhumidity <= 100) {
+    
+    notWorkSent = false;
+    
     // Mostra o resultado no monitor serial
     Serial.print("Humidade do solo: ");
     Serial.print(soilhumidity, 2);
@@ -56,6 +112,7 @@ void loop() {
     if (soilhumidity < 30) {
       if (waterSensorValue == LOW && tankEmptySent == false) {
         Serial.println("O tanque de água está vazio, não é possível regar a planta.");
+        sendMessage("O tanque de água está vazio, não é possível regar a planta.");
         tankEmptySent = true;
          
       }
@@ -73,7 +130,9 @@ void loop() {
       Serial.println("Parando de regar a planta...");
       pumpworking = false;
     }
+  }
 
+  // Apresenta os valores lidos pelos sensores no monitor Serial
   Serial.print("Sensor de humidade e temperatura: ");
   Serial.print("Humidade = ");
   Serial.print(humidity);
@@ -92,6 +151,28 @@ void loop() {
   } else {
     Serial.println("Líquido detectado");
   }
+
+  // Avisos a enviar caso a planta esteja a enfrentar alguma situação adversa
+  // Verifica se a temperatura está muito baixa
+  if (temperature < 18 && !lowTempSent) {
+    Serial.println("A temperatura está abaixo do ideal para a planta.");
+    lowTempSent = true;
+     sendMessage("A temperatura está abaixo do ideal para a planta.");
+  }
+  else if (temperature >= 18 && lowTempSent) {
+    lowTempSent = false;
+  }
+
+  // Verifica se a temperatura está muito alta
+  if (temperature > 26 && !highTempSent) {
+    Serial.println("A temperatura está acima do ideal para a planta.");
+    highTempSent = true;
+     sendMessage("A temperatura está acima do ideal para a planta.");
+  }
+  else if (temperature <= 26 && highTempSent) {
+    highTempSent = false;
+  }
+
 
   delay(1000); // Espera um segundo antes de executar o ciclo novamente
 }
