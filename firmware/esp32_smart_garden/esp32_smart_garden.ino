@@ -12,6 +12,7 @@ bool highTempSent = false; //Inicializa a variavel highTempSent
 
 #include <WiFi.h> // Inclui a biblioteca WiFi no programa para permitir a conexão com redes Wi-Fi
 #include <HTTPClient.h> // Inclui a biblioteca HTTPClient no programa para fazer solicitações HTTP a um servidor
+#include <WebServer.h> // Inclui a biblioteca WebServer no programa para criar um servidor web que pode ser usado para consultar o dispositivo IoT
 #include <UrlEncode.h> // Inclui a biblioteca UrlEncode no programa para codificar URLs para serem enviadas como parâmetros nas solicitações HTTP
 #include <DHT.h> // Inclui a biblioteca DHT no programa para permitir a utilização do sensor de humidade e temperatura
 #define DHTTYPE DHT11 // Define o tipo de sensor DHT que está a ser utilizado (DHT11 neste caso)
@@ -26,6 +27,7 @@ const char* password = "YOUR_WIFI_PASSWORD"; // Define a senha da rede Wi-Fi à 
 String phoneNumber = "+351XXXXXXXXX"; // Define o número de telefone que receberá mensagens de texto (número do pais + numero de telefone)
 String apiKey = "YOUR_CALLMEBOT_API_KEY"; // Define a chave da API usada para enviar mensagens de texto
 
+WebServer server(80); // Cria um servidor na porta 80
 
 void setup() {
   Serial.begin(9600); // Inicia a comunicação serial
@@ -46,6 +48,14 @@ void setup() {
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
 
+  // Define a rota para a página web
+  server.on("/", handleRoot);
+
+  // Inicia o servidor web
+  server.begin();
+  Serial.println("Servidor iniciado");
+  Serial.print("Endereço IP: ");
+  Serial.println(WiFi.localIP());
 }
 
 // Função que envia uma mensagem de texto para o número de telefone especificado
@@ -72,6 +82,7 @@ void sendMessage(String message){
 
 void loop() {
 
+  server.handleClient(); // Processa qualquer cliente que esteja a comunicar com o servidor naquele momento
   
   int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
   float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
@@ -175,4 +186,44 @@ void loop() {
 
 
   delay(1000); // Espera um segundo antes de executar o ciclo novamente
+}
+
+// Função responsável pela página Web
+void handleRoot() {
+  
+  int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
+  float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
+  float soilhumidity = (voltage - 0.92) / 0.08; // Calcula a humidade do solo a partir da voltagem lida do sensor de humidade do solo e converte o valor para uma escala de 0 a 100
+  int waterSensorValue = digitalRead(waterSensorPin); // Lê o valor do sensor de líquidos sem contacto
+  float humidity = dht.readHumidity(); // Lê a humidade relativa do ar a partir do sensor de humidade e temperatura DHT
+  float temperature = dht.readTemperature(); // Lê a temperatura a partir do sensor de humidade e temperatura DHT
+  int lightSensorValue = analogRead(lightSensorPin); // Lê o valor do sensor de intensidade luminosa
+  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converte o valor lido do sensor de intensidade luminosa para uma escala de 0 a 100
+  
+  String watertank = ""; // Inicializa a variável watertank como uma string vazia
+  String waterpump = ""; // Inicializa a variável waterpump como uma string vazia
+
+  // Verifica se existe agua no tanque
+  if (waterSensorValue == LOW) {
+    watertank += "Tanque vazio"; // Concatena o texto na variável watertank
+  } else {
+    watertank += "Tanque com água"; // Concatena o texto na variável watertank
+  }
+
+  // Verifica se a bomba de agua está ligada
+  if (pumpworking == false) {
+    waterpump += "Bomba desligada"; // Concatena o texto na variável waterpump
+  } else {
+    waterpump += "A regar a planta"; // Concatena o texto na variável waterpump
+  }
+
+  // Codigo da página Web
+  String html = "<html><head><meta charset='UTF-8'> <title>Horta IoT</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grelha { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperatura humidade luminosidade' 'humidadeSolo tanque bomba' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; } </style></head><body> <h1>Horta IoT</h1> <div class='grelha'> <div class='sensor-reading'> <div class='sensor-name'>Temperatura:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Luminosidade:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade do Solo:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Tanque de água:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Bomba de água:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
+
+  
+  int refreshTime = 1; // Define o tempo em segundos para a atualização da página
+
+  // Envia a página HTML para o cliente com a instrução de atualização automática
+  server.sendHeader("Refresh", String(refreshTime));
+  server.send(200, "text/html", html);
 }
