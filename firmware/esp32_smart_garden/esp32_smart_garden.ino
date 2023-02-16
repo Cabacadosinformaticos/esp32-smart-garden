@@ -9,6 +9,8 @@ bool tankEmptySent = false; //Inicializa a variavel tankEmptySent
 bool pumpworking = false; //Inicializa a variavel pumpworking
 bool lowTempSent = false; //Inicializa a variavel lowTempSent
 bool highTempSent = false; //Inicializa a variavel highTempSent
+bool lowHumiditySent = false; //Inicializa a variavel lowHumiditySent
+bool highHumiditySent = false; //Inicializa a variavel highHumiditySent
 
 #include <WiFi.h> // Inclui a biblioteca WiFi no programa para permitir a conexão com redes Wi-Fi
 #include <HTTPClient.h> // Inclui a biblioteca HTTPClient no programa para fazer solicitações HTTP a um servidor
@@ -184,6 +186,26 @@ void loop() {
     highTempSent = false;
   }
 
+  // Verifica se a humidade está muito baixa
+  if (humidity < 50 && !lowHumiditySent) {
+    Serial.println("A humidade do ar está abaixo do ideal para a planta.");
+    lowHumiditySent = true;
+  sendMessage("A humidade do ar está abaixo do ideal para a planta.");
+  }
+  else if (humidity >= 50 && lowHumiditySent) {
+    lowHumiditySent = false;
+  }
+
+  // Verifica se a humidade está muito alta
+  if (humidity > 70 && !highHumiditySent) {
+    Serial.println("A humidade do ar está acima do ideal para a planta.");
+    sendMessage("A humidade do ar está acima do ideal para a planta.");
+    highHumiditySent = true;
+  }
+  
+  else if (humidity <= 70 && highHumiditySent) {
+    highHumiditySent = false;
+  }
 
   delay(1000); // Espera um segundo antes de executar o ciclo novamente
 }
@@ -218,7 +240,7 @@ void handleRoot() {
   }
 
   // Codigo da página Web
-  String html = "<html><head><meta charset='UTF-8'> <title>Horta IoT</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grelha { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperatura humidade luminosidade' 'humidadeSolo tanque bomba' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; } </style></head><body> <h1>Horta IoT</h1> <div class='grelha'> <div class='sensor-reading'> <div class='sensor-name'>Temperatura:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Luminosidade:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade do Solo:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Tanque de água:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Bomba de água:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
+  String html = "<html><head><meta charset='UTF-8'> <title>Horta IoT</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grelha { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperatura humidade luminosidade' 'humidadeSolo tanque bomba' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grelha { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperatura' 'humidade''luminosidade' 'humidadeSolo ''tanque''bomba'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>Horta IoT</h1> <div class='grelha'> <div class='sensor-reading'> <div class='sensor-name'>Temperatura:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Luminosidade:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade do Solo:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Tanque de água:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Bomba de água:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
 
   
   int refreshTime = 1; // Define o tempo em segundos para a atualização da página
