@@ -1,45 +1,47 @@
-const int dhtSensorPin = 18; // pino do sensor de humidade e temperatura ligado ao pino 2 do Arduino
-const int relayPin = 19; // Pino de controle do relé ligado ao pino 4 do Arduino
-const int lightSensorPin = 34; // Pino do sensor de luminosidade KY-018 ligado ao pino A0 do Arduino
-const int waterSensorPin = 35; // Pino do sensor de líquidos sem contacto ligado ao pino A1 do Arduino
-const int soilSensorPin = 32; // Pino do sensor de humidade do solo ligado ao pino A2 do Arduino
+// Smart garden: reads the sensors, waters the plant and serves a web page.
 
-bool notWorkSent = false; //Inicializa a variavel tankEmptySent
-bool tankEmptySent = false; //Inicializa a variavel tankEmptySent
-bool pumpworking = false; //Inicializa a variavel pumpworking
-bool lowTempSent = false; //Inicializa a variavel lowTempSent
-bool highTempSent = false; //Inicializa a variavel highTempSent
-bool lowHumiditySent = false; //Inicializa a variavel lowHumiditySent
-bool highHumiditySent = false; //Inicializa a variavel highHumiditySent
+const int dhtSensorPin = 18; // DHT sensor pin connected to Arduino pin 2
+const int relayPin = 19; // Relay control pin connected to Arduino pin 4
+const int lightSensorPin = 34; // KY-018 light sensor pin connected to Arduino pin A0
+const int waterSensorPin = 35; // Contactless liquid sensor pin connected to Arduino pin A1
+const int soilSensorPin = 32; // Soil humidity sensor pin connected to Arduino pin A2
 
-#include <WiFi.h> // Inclui a biblioteca WiFi no programa para permitir a conexão com redes Wi-Fi
-#include <HTTPClient.h> // Inclui a biblioteca HTTPClient no programa para fazer solicitações HTTP a um servidor
-#include <WebServer.h> // Inclui a biblioteca WebServer no programa para criar um servidor web que pode ser usado para consultar o dispositivo IoT
-#include <UrlEncode.h> // Inclui a biblioteca UrlEncode no programa para codificar URLs para serem enviadas como parâmetros nas solicitações HTTP
-#include <DHT.h> // Inclui a biblioteca DHT no programa para permitir a utilização do sensor de humidade e temperatura
-#define DHTTYPE DHT11 // Define o tipo de sensor DHT que está a ser utilizado (DHT11 neste caso)
-DHT dht(dhtSensorPin, DHTTYPE); // Cria uma instância da biblioteca DHT com o pino do sensor DHT e o tipo definido anteriormente
+bool notWorkSent = false; // Initializes the variable notWorkSent
+bool tankEmptySent = false; // Initializes the variable tankEmptySent
+bool pumpworking = false; // Initializes the variable pumpworking
+bool lowTempSent = false; // Initializes the variable lowTempSent
+bool highTempSent = false; // Initializes the variable highTempSent
+bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
+bool highHumiditySent = false; // Initializes the variable highHumiditySent
+
+#include <WiFi.h> // Includes the WiFi library in the program to allow connection to Wi-Fi networks
+#include <HTTPClient.h> // Includes the HTTPClient library in the program to make HTTP requests to a server
+#include <WebServer.h> // Includes the WebServer library in the program to create a web server that can be used to query the IoT device
+#include <UrlEncode.h> // Includes the UrlEncode library in the program to encode URLs to be sent as parameters in HTTP requests
+#include <DHT.h> // Includes the DHT library in the program to allow the use of the humidity and temperature sensor
+#define DHTTYPE DHT11 // Defines the type of DHT sensor being used (DHT11 in this case)
+DHT dht(dhtSensorPin, DHTTYPE); // Creates a DHT library instance with the DHT sensor pin and the type defined above
 
 
-const char* ssid = "YOUR_WIFI_SSID"; // Define o nome da rede Wi-Fi (SSID) à qual o dispositivo se conectará
-const char* password = "YOUR_WIFI_PASSWORD"; // Define a senha da rede Wi-Fi à qual o dispositivo se conectará
+const char* ssid = "YOUR_WIFI_SSID"; // Defines the name of the Wi-Fi network (SSID) the device will connect to
+const char* password = "YOUR_WIFI_PASSWORD"; // Defines the password of the Wi-Fi network the device will connect to
 
 // +international_country_code + phone number
-// Portugal +351, example: +351912345678 
-String phoneNumber = "+351XXXXXXXXX"; // Define o número de telefone que receberá mensagens de texto (número do pais + numero de telefone)
-String apiKey = "YOUR_CALLMEBOT_API_KEY"; // Define a chave da API usada para enviar mensagens de texto
+// Portugal +351, example: +351912345678
+String phoneNumber = "+351XXXXXXXXX"; // Defines the phone number that will receive the text messages (country code + phone number)
+String apiKey = "YOUR_CALLMEBOT_API_KEY"; // Defines the API key used to send text messages
 
-WebServer server(80); // Cria um servidor na porta 80
+WebServer server(80); // Creates a server on port 80
 
 void setup() {
-  Serial.begin(9600); // Inicia a comunicação serial
-  dht.begin(); // Inicia o sensor de humidade e temperatura
-  pinMode(waterSensorPin, INPUT); // Define o pino do sensor de líquidos sem contacto como entrada
-  pinMode(lightSensorPin, INPUT); // Define o pino do sensor de luminosidade KY-018 como entrada
-  pinMode(soilSensorPin, INPUT); // Define o pino do sensor de humidade do solo como entrada
-  pinMode(relayPin, OUTPUT); // Define o pino do relé como saída
-  
-  // Faz a ligação á rede Wifi
+  Serial.begin(9600); // Starts serial communication
+  dht.begin(); // Starts the humidity and temperature sensor
+  pinMode(waterSensorPin, INPUT); // Sets the contactless liquid sensor pin as input
+  pinMode(lightSensorPin, INPUT); // Sets the KY-018 light sensor pin as input
+  pinMode(soilSensorPin, INPUT); // Sets the soil humidity sensor pin as input
+  pinMode(relayPin, OUTPUT); // Sets the relay pin as output
+
+  // Connects to the Wi-Fi network
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) {
@@ -50,27 +52,27 @@ void setup() {
   Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
 
-  // Define a rota para a página web
+  // Sets the route for the web page
   server.on("/", handleRoot);
 
-  // Inicia o servidor web
+  // Starts the web server
   server.begin();
-  Serial.println("Servidor iniciado");
-  Serial.print("Endereço IP: ");
+  Serial.println("Server started");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
-// Função que envia uma mensagem de texto para o número de telefone especificado
+// Function that sends a text message to the specified phone number
 void sendMessage(String message){
 
-  String url = "https://api.callmebot.com/whatsapp.php?phone=" + phoneNumber + "&apikey=" + apiKey + "&text=" + urlEncode(message); // Cria a URL com as informações necessárias para enviar a mensagem de texto através da API do CallMeBot
-  HTTPClient http; // Inicia uma solicitação HTTP POST usando a URL criada anteriormente
+  String url = "https://api.callmebot.com/whatsapp.php?phone=" + phoneNumber + "&apikey=" + apiKey + "&text=" + urlEncode(message); // Builds the URL with the information needed to send the text message through the CallMeBot API
+  HTTPClient http; // Starts an HTTP POST request using the URL created above
   http.begin(url);
 
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded"); // Define o cabeçalho Content-Type como application/x-www-form-urlencoded
-  
-  int httpResponseCode = http.POST(url); // Envia a solicitação HTTP POST e armazena o código de resposta HTTP em uma variável
-  if (httpResponseCode == 200){ // Verifica se a mensagem foi enviada com sucesso e imprime uma mensagem no monitor serial
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded"); // Sets the Content-Type header to application/x-www-form-urlencoded
+
+  int httpResponseCode = http.POST(url); // Sends the HTTP POST request and stores the HTTP response code in a variable
+  if (httpResponseCode == 200){ // Checks if the message was sent successfully and prints a message on the serial monitor
     Serial.print("Message sent successfully");
   }
   else{
@@ -79,173 +81,173 @@ void sendMessage(String message){
     Serial.println(httpResponseCode);
   }
 
-  http.end(); // Liberta os recursos usados na solicitação HTTP
+  http.end(); // Releases the resources used in the HTTP request
 }
 
 void loop() {
 
-  server.handleClient(); // Processa qualquer cliente que esteja a comunicar com o servidor naquele momento
-  
-  int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
-  float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
-  float soilhumidity = (voltage - 0.92) / 0.08; // Calcula a humidade do solo a partir da voltagem lida do sensor de humidade do solo e converte o valor para uma escala de 0 a 100
-  int waterSensorValue = digitalRead(waterSensorPin); // Lê o valor do sensor de líquidos sem contacto
-  float humidity = dht.readHumidity(); // Lê a humidade relativa do ar a partir do sensor de humidade e temperatura DHT
-  float temperature = dht.readTemperature(); // Lê a temperatura a partir do sensor de humidade e temperatura DHT
-  int lightSensorValue = analogRead(lightSensorPin); // Lê o valor do sensor de intensidade luminosa
-  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converte o valor lido do sensor de intensidade luminosa para uma escala de 0 a 100
+  server.handleClient(); // Handles any client that is communicating with the server at that moment
 
-  Serial.println("--- Medições ---");
-  ("Sensor de humidade do solo: ");
-  // Verifica se o valor lido pelo sensor de humidade do solo está dentro do intervalo válido (0-100%)
-  // Se o valor estiver fora do intervalo, envia uma mensagem de erro e define notWorkSent como true
-  // Caso contrário, mostra a humidade do solo e verifica se é necessário regar a planta ou não
+  int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
+  float voltage = soilSensorValue * (5.0 / 4095.0); // Calculates the voltage from the value read from the soil humidity sensor
+  float soilhumidity = (voltage - 0.92) / 0.08; // Calculates the soil humidity from the voltage read from the soil humidity sensor and converts the value to a scale from 0 to 100
+  int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
+  float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
+  float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
+  int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
+  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+
+  Serial.println("--- Readings ---");
+  ("Soil humidity sensor: ");
+  // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
+  // If the value is outside the range, sends an error message and sets notWorkSent to true
+  // Otherwise, shows the soil humidity and checks whether the plant needs to be watered or not
   if (soilhumidity < 0 || soilhumidity > 100) {
-    
+
     if (!notWorkSent) {
-    
-    Serial.println("Erro: Valor de humidade fora do intervalo válido (0-100%)");
-    
-    sendMessage("O sensor de humidade nao está a funcionar!");
-    
+
+    Serial.println("Error: Humidity value outside the valid range (0-100%)");
+
+    sendMessage("The soil humidity sensor is not working!");
+
     notWorkSent = true;
 
     }
-       
+
    } else if (soilhumidity >= 0 && soilhumidity <= 100) {
-    
+
     notWorkSent = false;
-    
-    // Mostra o resultado no monitor serial
-    Serial.print("Humidade do solo: ");
+
+    // Shows the result on the serial monitor
+    Serial.print("Soil humidity: ");
     Serial.print(soilhumidity, 2);
     Serial.println("%");
 
-    // Verifica se a humidade do solo está abaixo de 30% e existe agua no tanque, caso os dois sejam verdade inicia a rega
+    // Checks if the soil humidity is below 30% and there is water in the tank; if both are true it starts watering
     if (soilhumidity < 30) {
       if (waterSensorValue == LOW && tankEmptySent == false) {
-        Serial.println("O tanque de água está vazio, não é possível regar a planta.");
-        sendMessage("O tanque de água está vazio, não é possível regar a planta.");
+        Serial.println("The water tank is empty, the plant cannot be watered.");
+        sendMessage("The water tank is empty, the plant cannot be watered.");
         tankEmptySent = true;
-         
+
       }
       if (waterSensorValue == HIGH) {
-        digitalWrite(relayPin, HIGH); // Liga o relé
-        Serial.println("Regando a planta...");
+        digitalWrite(relayPin, HIGH); // Turns the relay on
+        Serial.println("Watering the plant...");
         tankEmptySent = false;
         pumpworking = true;
       }
     }
 
-    // Verifica se a humidade do solo está acima de 70% ou se já não existe agua no tanque, caso um deles seja verdade para a rega
+    // Checks if the soil humidity is above 70% or if there is no more water in the tank; if either is true it stops watering
     if (soilhumidity > 70 || waterSensorValue == LOW) {
-      digitalWrite(relayPin, LOW); // Desliga o relé
-      Serial.println("Parando de regar a planta...");
+      digitalWrite(relayPin, LOW); // Turns the relay off
+      Serial.println("Stopping watering the plant...");
       pumpworking = false;
     }
   }
 
-  // Apresenta os valores lidos pelos sensores no monitor Serial
-  Serial.print("Sensor de humidade e temperatura: ");
-  Serial.print("Humidade = ");
+  // Shows the values read by the sensors on the Serial monitor
+  Serial.print("Humidity and temperature sensor: ");
+  Serial.print("Humidity = ");
   Serial.print(humidity);
-  Serial.print("%, Temperatura = ");
+  Serial.print("%, Temperature = ");
   Serial.print(temperature);
   Serial.println(" ºC");
-  Serial.print("Sensor de luminosidade: ");
-  Serial.print("Intensidade de luz = ");
+  Serial.print("Light sensor: ");
+  Serial.print("Light intensity = ");
   Serial.print(lightIntensity);
   Serial.println("%");
 
-  // Verifica se existe agua no tanque e apresenta o resultado no monitor Serial
-  Serial.print("Sensor de líquidos sem contacto: ");
+  // Checks if there is water in the tank and shows the result on the Serial monitor
+  Serial.print("Contactless liquid sensor: ");
   if (waterSensorValue == LOW) {
-    Serial.println("Nenhum líquido detectado");
+    Serial.println("No liquid detected");
   } else {
-    Serial.println("Líquido detectado");
+    Serial.println("Liquid detected");
   }
 
-  // Avisos a enviar caso a planta esteja a enfrentar alguma situação adversa
-  // Verifica se a temperatura está muito baixa
+  // Alerts to send if the plant is facing an adverse situation
+  // Checks if the temperature is too low
   if (temperature < 18 && !lowTempSent) {
-    Serial.println("A temperatura está abaixo do ideal para a planta.");
+    Serial.println("The temperature is below the ideal for the plant.");
     lowTempSent = true;
-     sendMessage("A temperatura está abaixo do ideal para a planta.");
+     sendMessage("The temperature is below the ideal for the plant.");
   }
   else if (temperature >= 18 && lowTempSent) {
     lowTempSent = false;
   }
 
-  // Verifica se a temperatura está muito alta
+  // Checks if the temperature is too high
   if (temperature > 26 && !highTempSent) {
-    Serial.println("A temperatura está acima do ideal para a planta.");
+    Serial.println("The temperature is above the ideal for the plant.");
     highTempSent = true;
-     sendMessage("A temperatura está acima do ideal para a planta.");
+     sendMessage("The temperature is above the ideal for the plant.");
   }
   else if (temperature <= 26 && highTempSent) {
     highTempSent = false;
   }
 
-  // Verifica se a humidade está muito baixa
+  // Checks if the humidity is too low
   if (humidity < 50 && !lowHumiditySent) {
-    Serial.println("A humidade do ar está abaixo do ideal para a planta.");
+    Serial.println("The air humidity is below the ideal for the plant.");
     lowHumiditySent = true;
-  sendMessage("A humidade do ar está abaixo do ideal para a planta.");
+  sendMessage("The air humidity is below the ideal for the plant.");
   }
   else if (humidity >= 50 && lowHumiditySent) {
     lowHumiditySent = false;
   }
 
-  // Verifica se a humidade está muito alta
+  // Checks if the humidity is too high
   if (humidity > 70 && !highHumiditySent) {
-    Serial.println("A humidade do ar está acima do ideal para a planta.");
-    sendMessage("A humidade do ar está acima do ideal para a planta.");
+    Serial.println("The air humidity is above the ideal for the plant.");
+    sendMessage("The air humidity is above the ideal for the plant.");
     highHumiditySent = true;
   }
-  
+
   else if (humidity <= 70 && highHumiditySent) {
     highHumiditySent = false;
   }
 
-  delay(1000); // Espera um segundo antes de executar o ciclo novamente
+  delay(1000); // Waits one second before running the loop again
 }
 
-// Função responsável pela página Web
+// Function responsible for the Web page
 void handleRoot() {
-  
-  int soilSensorValue = analogRead(soilSensorPin); // Lê o valor do sensor de humidade do solo
-  float voltage = soilSensorValue * (5.0 / 4095.0); // Calcula a voltagem a partir do valor lido do sensor de humidade do solo
-  float soilhumidity = (voltage - 0.92) / 0.08; // Calcula a humidade do solo a partir da voltagem lida do sensor de humidade do solo e converte o valor para uma escala de 0 a 100
-  int waterSensorValue = digitalRead(waterSensorPin); // Lê o valor do sensor de líquidos sem contacto
-  float humidity = dht.readHumidity(); // Lê a humidade relativa do ar a partir do sensor de humidade e temperatura DHT
-  float temperature = dht.readTemperature(); // Lê a temperatura a partir do sensor de humidade e temperatura DHT
-  int lightSensorValue = analogRead(lightSensorPin); // Lê o valor do sensor de intensidade luminosa
-  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converte o valor lido do sensor de intensidade luminosa para uma escala de 0 a 100
-  
-  String watertank = ""; // Inicializa a variável watertank como uma string vazia
-  String waterpump = ""; // Inicializa a variável waterpump como uma string vazia
 
-  // Verifica se existe agua no tanque
+  int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
+  float voltage = soilSensorValue * (5.0 / 4095.0); // Calculates the voltage from the value read from the soil humidity sensor
+  float soilhumidity = (voltage - 0.92) / 0.08; // Calculates the soil humidity from the voltage read from the soil humidity sensor and converts the value to a scale from 0 to 100
+  int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
+  float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
+  float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
+  int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
+  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+
+  String watertank = ""; // Initializes the watertank variable as an empty string
+  String waterpump = ""; // Initializes the waterpump variable as an empty string
+
+  // Checks if there is water in the tank
   if (waterSensorValue == LOW) {
-    watertank += "Tanque vazio"; // Concatena o texto na variável watertank
+    watertank += "Tank empty"; // Concatenates the text into the watertank variable
   } else {
-    watertank += "Tanque com água"; // Concatena o texto na variável watertank
+    watertank += "Tank with water"; // Concatenates the text into the watertank variable
   }
 
-  // Verifica se a bomba de agua está ligada
+  // Checks if the water pump is on
   if (pumpworking == false) {
-    waterpump += "Bomba desligada"; // Concatena o texto na variável waterpump
+    waterpump += "Pump off"; // Concatenates the text into the waterpump variable
   } else {
-    waterpump += "A regar a planta"; // Concatena o texto na variável waterpump
+    waterpump += "Watering the plant"; // Concatenates the text into the waterpump variable
   }
 
-  // Codigo da página Web
-  String html = "<html><head><meta charset='UTF-8'> <title>Horta IoT</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grelha { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperatura humidade luminosidade' 'humidadeSolo tanque bomba' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grelha { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperatura' 'humidade''luminosidade' 'humidadeSolo ''tanque''bomba'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>Horta IoT</h1> <div class='grelha'> <div class='sensor-reading'> <div class='sensor-name'>Temperatura:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Luminosidade:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidade do Solo:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Tanque de água:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Bomba de água:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
+  // Web page code
+  String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grid { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperature humidity light' 'soilHumidity tank pump' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperature' 'humidity''light' 'soilHumidity ''tank''pump'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>IoT Garden</h1> <div class='grid'> <div class='sensor-reading'> <div class='sensor-name'>Temperature:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water pump:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
 
-  
-  int refreshTime = 1; // Define o tempo em segundos para a atualização da página
 
-  // Envia a página HTML para o cliente com a instrução de atualização automática
+  int refreshTime = 1; // Defines the time in seconds for the page refresh
+
+  // Sends the HTML page to the client with the automatic refresh instruction
   server.sendHeader("Refresh", String(refreshTime));
   server.send(200, "text/html", html);
 }
