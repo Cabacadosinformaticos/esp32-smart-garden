@@ -98,7 +98,6 @@ void loop() {
   float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
 
   Serial.println("--- Readings ---");
-  ("Soil humidity sensor: ");
   // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
   // If the value is outside the range, sends an error message and sets notWorkSent to true
   // Otherwise, shows the soil humidity and checks whether the plant needs to be watered or not
