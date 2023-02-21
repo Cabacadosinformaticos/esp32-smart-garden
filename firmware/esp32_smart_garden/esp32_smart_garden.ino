@@ -6,6 +6,13 @@ const int lightSensorPin = 34; // KY-018 light sensor pin connected to Arduino p
 const int waterSensorPin = 35; // Contactless liquid sensor pin connected to Arduino pin A1
 const int soilSensorPin = 32; // Soil humidity sensor pin connected to Arduino pin A2
 
+// ADC and soil sensor calibration
+const int adcMaxValue = 4095; // 12-bit ADC of the ESP32
+const float adcReferenceVoltage = 3.3; // ESP32 ADC input range, not 5 V
+// These two values describe the sensor curve and must be calibrated for the sensor in use
+const float soilVoltageDry = 0.92; // voltage that is converted to 0 % (offset of the sensor curve)
+const float soilVoltagePerPercent = 0.08; // volts per 1 % of soil humidity (slope of the sensor curve)
+
 bool notWorkSent = false; // Initializes the variable notWorkSent
 bool tankEmptySent = false; // Initializes the variable tankEmptySent
 bool pumpworking = false; // Initializes the variable pumpworking
@@ -85,18 +92,24 @@ void sendMessage(String message){
   http.end(); // Releases the resources used in the HTTP request
 }
 
+// Reads the soil humidity sensor, converts the raw value to voltage and then to a percentage
+float readSoilHumidity() {
+  int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
+  float voltage = soilSensorValue * (adcReferenceVoltage / (float)adcMaxValue); // Calculates the voltage from the value read from the soil humidity sensor
+  float soilhumidity = (voltage - soilVoltageDry) / soilVoltagePerPercent; // Calculates the soil humidity and converts the value to a scale from 0 to 100
+  return soilhumidity;
+}
+
 void loop() {
 
   server.handleClient(); // Handles any client that is communicating with the server at that moment
 
-  int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
-  float voltage = soilSensorValue * (5.0 / 4095.0); // Calculates the voltage from the value read from the soil humidity sensor
-  float soilhumidity = (voltage - 0.92) / 0.08; // Calculates the soil humidity from the voltage read from the soil humidity sensor and converts the value to a scale from 0 to 100
+  float soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
   int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
   float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
   float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
   int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
-  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+  float lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
 
   Serial.println("--- Readings ---");
   // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
@@ -215,14 +228,12 @@ void loop() {
 // Function responsible for the Web page
 void handleRoot() {
 
-  int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
-  float voltage = soilSensorValue * (5.0 / 4095.0); // Calculates the voltage from the value read from the soil humidity sensor
-  float soilhumidity = (voltage - 0.92) / 0.08; // Calculates the soil humidity from the voltage read from the soil humidity sensor and converts the value to a scale from 0 to 100
+  float soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
   int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
   float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
   float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
   int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
-  float lightIntensity = map(lightSensorValue, 0, 4095, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+  float lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
 
   String watertank = ""; // Initializes the watertank variable as an empty string
   String waterpump = ""; // Initializes the waterpump variable as an empty string
