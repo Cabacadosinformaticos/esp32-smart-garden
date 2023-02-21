@@ -19,17 +19,18 @@ bool highHumiditySent = false; // Initializes the variable highHumiditySent
 #include <WebServer.h> // Includes the WebServer library in the program to create a web server that can be used to query the IoT device
 #include <UrlEncode.h> // Includes the UrlEncode library in the program to encode URLs to be sent as parameters in HTTP requests
 #include <DHT.h> // Includes the DHT library in the program to allow the use of the humidity and temperature sensor
+#include "secrets.h" // Includes the Wi-Fi, phone number and API key defined in the secrets.h file
 #define DHTTYPE DHT11 // Defines the type of DHT sensor being used (DHT11 in this case)
 DHT dht(dhtSensorPin, DHTTYPE); // Creates a DHT library instance with the DHT sensor pin and the type defined above
 
 
-const char* ssid = "YOUR_WIFI_SSID"; // Defines the name of the Wi-Fi network (SSID) the device will connect to
-const char* password = "YOUR_WIFI_PASSWORD"; // Defines the password of the Wi-Fi network the device will connect to
+const char* ssid = WIFI_SSID; // Defines the name of the Wi-Fi network (SSID) the device will connect to
+const char* password = WIFI_PASSWORD; // Defines the password of the Wi-Fi network the device will connect to
 
 // +international_country_code + phone number
 // Portugal +351, example: +351912345678
-String phoneNumber = "+351XXXXXXXXX"; // Defines the phone number that will receive the text messages (country code + phone number)
-String apiKey = "YOUR_CALLMEBOT_API_KEY"; // Defines the API key used to send text messages
+String phoneNumber = WHATSAPP_PHONE; // Defines the phone number that will receive the text messages (country code + phone number)
+String apiKey = CALLMEBOT_API_KEY; // Defines the API key used to send text messages
 
 WebServer server(80); // Creates a server on port 80
 
