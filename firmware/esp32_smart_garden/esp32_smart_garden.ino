@@ -72,25 +72,37 @@ void setup() {
 }
 
 // Function that sends a text message to the specified phone number
-void sendMessage(String message){
+// Returns true only when the server answers with HTTP 200
+bool sendMessage(String message){
+
+  // The message can only be sent when the Wi-Fi connection is up
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Wi-Fi is not connected, message not sent");
+    return false;
+  }
 
   String url = "https://api.callmebot.com/whatsapp.php?phone=" + phoneNumber + "&apikey=" + apiKey + "&text=" + urlEncode(message); // Builds the URL with the information needed to send the text message through the CallMeBot API
-  HTTPClient http; // Starts an HTTP POST request using the URL created above
+  HTTPClient http; // Starts an HTTP GET request using the URL created above
   http.begin(url);
+  http.setTimeout(5000); // Waits at most 5 seconds for the server answer
 
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded"); // Sets the Content-Type header to application/x-www-form-urlencoded
-
-  int httpResponseCode = http.POST(url); // Sends the HTTP POST request and stores the HTTP response code in a variable
+  int httpResponseCode = http.GET(); // Sends the HTTP GET request and stores the HTTP response code in a variable
   if (httpResponseCode == 200){ // Checks if the message was sent successfully and prints a message on the serial monitor
-    Serial.print("Message sent successfully");
+    Serial.println("Message sent successfully");
   }
   else{
     Serial.println("Error sending the message");
+    if (httpResponseCode < 0) { // Negative codes mean the connection itself failed
+      Serial.print("Connection error: ");
+      Serial.println(HTTPClient::errorToString(httpResponseCode));
+    }
     Serial.print("HTTP response code: ");
     Serial.println(httpResponseCode);
   }
 
   http.end(); // Releases the resources used in the HTTP request
+
+  return httpResponseCode == 200;
 }
 
 // Reads the soil humidity sensor, converts the raw value to voltage and then to a percentage
