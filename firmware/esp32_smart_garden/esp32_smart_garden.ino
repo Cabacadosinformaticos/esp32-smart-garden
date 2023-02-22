@@ -20,6 +20,7 @@ bool lowTempSent = false; // Initializes the variable lowTempSent
 bool highTempSent = false; // Initializes the variable highTempSent
 bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
 bool highHumiditySent = false; // Initializes the variable highHumiditySent
+bool dhtErrorSent = false; // Initializes the variable dhtErrorSent
 
 #include <WiFi.h> // Includes the WiFi library in the program to allow connection to Wi-Fi networks
 #include <HTTPClient.h> // Includes the HTTPClient library in the program to make HTTP requests to a server
@@ -160,13 +161,31 @@ void loop() {
     }
   }
 
+  // NaN means the DHT sensor did not answer, so the readings cannot be used
+  bool dhtValid = !isnan(humidity) && !isnan(temperature);
+
   // Shows the values read by the sensors on the Serial monitor
-  Serial.print("Humidity and temperature sensor: ");
-  Serial.print("Humidity = ");
-  Serial.print(humidity);
-  Serial.print("%, Temperature = ");
-  Serial.print(temperature);
-  Serial.println(" ºC");
+  if (dhtValid) {
+
+    dhtErrorSent = false; // The sensor is working again
+
+    Serial.print("Humidity and temperature sensor: ");
+    Serial.print("Humidity = ");
+    Serial.print(humidity);
+    Serial.print("%, Temperature = ");
+    Serial.print(temperature);
+    Serial.println(" ºC");
+
+  } else if (!dhtErrorSent) {
+
+    Serial.println("Error: could not read the DHT11 sensor");
+
+    sendMessage("The temperature and humidity sensor is not working!");
+
+    dhtErrorSent = true;
+
+  }
+
   Serial.print("Light sensor: ");
   Serial.print("Light intensity = ");
   Serial.print(lightIntensity);
@@ -181,45 +200,49 @@ void loop() {
   }
 
   // Alerts to send if the plant is facing an adverse situation
-  // Checks if the temperature is too low
-  if (temperature < 18 && !lowTempSent) {
-    Serial.println("The temperature is below the ideal for the plant.");
-    lowTempSent = true;
-     sendMessage("The temperature is below the ideal for the plant.");
-  }
-  else if (temperature >= 18 && lowTempSent) {
-    lowTempSent = false;
-  }
+  // All the temperature and humidity checks are skipped when the sensor did not answer
+  if (dhtValid) {
 
-  // Checks if the temperature is too high
-  if (temperature > 26 && !highTempSent) {
-    Serial.println("The temperature is above the ideal for the plant.");
-    highTempSent = true;
-     sendMessage("The temperature is above the ideal for the plant.");
-  }
-  else if (temperature <= 26 && highTempSent) {
-    highTempSent = false;
-  }
+    // Checks if the temperature is too low
+    if (temperature < 18 && !lowTempSent) {
+      Serial.println("The temperature is below the ideal for the plant.");
+      lowTempSent = true;
+       sendMessage("The temperature is below the ideal for the plant.");
+    }
+    else if (temperature >= 18 && lowTempSent) {
+      lowTempSent = false;
+    }
 
-  // Checks if the humidity is too low
-  if (humidity < 50 && !lowHumiditySent) {
-    Serial.println("The air humidity is below the ideal for the plant.");
-    lowHumiditySent = true;
-  sendMessage("The air humidity is below the ideal for the plant.");
-  }
-  else if (humidity >= 50 && lowHumiditySent) {
-    lowHumiditySent = false;
-  }
+    // Checks if the temperature is too high
+    if (temperature > 26 && !highTempSent) {
+      Serial.println("The temperature is above the ideal for the plant.");
+      highTempSent = true;
+       sendMessage("The temperature is above the ideal for the plant.");
+    }
+    else if (temperature <= 26 && highTempSent) {
+      highTempSent = false;
+    }
 
-  // Checks if the humidity is too high
-  if (humidity > 70 && !highHumiditySent) {
-    Serial.println("The air humidity is above the ideal for the plant.");
-    sendMessage("The air humidity is above the ideal for the plant.");
-    highHumiditySent = true;
-  }
+    // Checks if the humidity is too low
+    if (humidity < 50 && !lowHumiditySent) {
+      Serial.println("The air humidity is below the ideal for the plant.");
+      lowHumiditySent = true;
+    sendMessage("The air humidity is below the ideal for the plant.");
+    }
+    else if (humidity >= 50 && lowHumiditySent) {
+      lowHumiditySent = false;
+    }
 
-  else if (humidity <= 70 && highHumiditySent) {
-    highHumiditySent = false;
+    // Checks if the humidity is too high
+    if (humidity > 70 && !highHumiditySent) {
+      Serial.println("The air humidity is above the ideal for the plant.");
+      sendMessage("The air humidity is above the ideal for the plant.");
+      highHumiditySent = true;
+    }
+
+    else if (humidity <= 70 && highHumiditySent) {
+      highHumiditySent = false;
+    }
   }
 
   delay(1000); // Waits one second before running the loop again
@@ -252,8 +275,12 @@ void handleRoot() {
     waterpump += "Watering the plant"; // Concatenates the text into the waterpump variable
   }
 
+  // Shows "n/a" instead of a number when the DHT sensor did not answer
+  String temperatureText = isnan(temperature) ? "n/a" : String(temperature);
+  String humidityText = isnan(humidity) ? "n/a" : String(humidity);
+
   // Web page code
-  String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grid { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperature humidity light' 'soilHumidity tank pump' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperature' 'humidity''light' 'soilHumidity ''tank''pump'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>IoT Garden</h1> <div class='grid'> <div class='sensor-reading'> <div class='sensor-name'>Temperature:</div> <div class='sensor-value'>" + String(temperature) + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + String(humidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water pump:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
+  String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grid { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperature humidity light' 'soilHumidity tank pump' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperature' 'humidity''light' 'soilHumidity ''tank''pump'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>IoT Garden</h1> <div class='grid'> <div class='sensor-reading'> <div class='sensor-name'>Temperature:</div> <div class='sensor-value'>" + temperatureText + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + humidityText + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water pump:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
 
 
   int refreshTime = 1; // Defines the time in seconds for the page refresh
