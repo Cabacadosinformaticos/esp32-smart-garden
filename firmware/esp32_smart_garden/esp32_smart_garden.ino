@@ -21,6 +21,7 @@ bool highTempSent = false; // Initializes the variable highTempSent
 bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
 bool highHumiditySent = false; // Initializes the variable highHumiditySent
 bool dhtErrorSent = false; // Initializes the variable dhtErrorSent
+unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 
 #include <WiFi.h> // Includes the WiFi library in the program to allow connection to Wi-Fi networks
 #include <HTTPClient.h> // Includes the HTTPClient library in the program to make HTTP requests to a server
@@ -42,6 +43,33 @@ String apiKey = CALLMEBOT_API_KEY; // Defines the API key used to send text mess
 
 WebServer server(80); // Creates a server on port 80
 
+const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits for the Wi-Fi connection
+const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
+
+// Tries to connect to the Wi-Fi network and gives up after wifiConnectTimeout
+// Returns true when the connection is up
+bool connectWiFi() {
+  WiFi.mode(WIFI_STA); // Sets the Wi-Fi to station mode
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+
+  unsigned long startTime = millis(); // Time when this connection attempt started
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < wifiConnectTimeout) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Connected to WiFi network with IP Address: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
+
+  Serial.println("Wi-Fi connection failed, will keep trying");
+  return false;
+}
+
 void setup() {
   Serial.begin(9600); // Starts serial communication
   dht.begin(); // Starts the humidity and temperature sensor
@@ -50,16 +78,9 @@ void setup() {
   pinMode(soilSensorPin, INPUT); // Sets the soil humidity sensor pin as input
   pinMode(relayPin, OUTPUT); // Sets the relay pin as output
 
-  // Connects to the Wi-Fi network
-  WiFi.begin(ssid, password);
-  Serial.println("Connecting");
-  while(WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  Serial.println(WiFi.localIP());
+  // Connects to the Wi-Fi network, setup continues even if it fails
+  connectWiFi();
+  lastWifiAttempt = millis();
 
   // Sets the route for the web page
   server.on("/", handleRoot);
@@ -67,8 +88,12 @@ void setup() {
   // Starts the web server
   server.begin();
   Serial.println("Server started");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("IP address: not connected");
+  }
 }
 
 // Function that sends a text message to the specified phone number
@@ -114,6 +139,14 @@ float readSoilHumidity() {
 }
 
 void loop() {
+
+  // Tries to reconnect when the Wi-Fi connection is lost, without waiting here
+  if (WiFi.status() != WL_CONNECTED && millis() - lastWifiAttempt >= wifiRetryInterval) {
+    lastWifiAttempt = millis();
+    Serial.println("Wi-Fi lost, reconnecting");
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+  }
 
   server.handleClient(); // Handles any client that is communicating with the server at that moment
 
