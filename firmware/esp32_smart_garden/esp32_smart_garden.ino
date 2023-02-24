@@ -13,9 +13,18 @@ const float adcReferenceVoltage = 3.3; // ESP32 ADC input range, not 5 V
 const float soilVoltageDry = 0.92; // voltage that is converted to 0 % (offset of the sensor curve)
 const float soilVoltagePerPercent = 0.08; // volts per 1 % of soil humidity (slope of the sensor curve)
 
+// Watering thresholds
+const float soilDryLimit = 30; // soil humidity (percent) below which the pump starts
+const float soilWetLimit = 70; // soil humidity (percent) above which the pump stops
+const unsigned long maxPumpRunTime = 30000; // safety timeout in ms, the pump is always stopped after this time
+const unsigned long pumpPauseTime = 60000; // ms the pump stays off after a safety stop so the water can soak in
+
 bool notWorkSent = false; // Initializes the variable notWorkSent
 bool tankEmptySent = false; // Initializes the variable tankEmptySent
-bool pumpworking = false; // Initializes the variable pumpworking
+bool pumpWorking = false; // True while the water pump is running
+unsigned long pumpStartTime = 0; // Time when the pump started, used by the safety timeout
+unsigned long pumpBlockedUntil = 0; // Time until the pump has to stay off after a safety stop
+bool pumpTimeoutSent = false; // True after the safety timeout alert was sent
 bool lowTempSent = false; // Initializes the variable lowTempSent
 bool highTempSent = false; // Initializes the variable highTempSent
 bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
@@ -138,6 +147,70 @@ float readSoilHumidity() {
   return soilhumidity;
 }
 
+// Decides if the water pump must run or stop
+// This is the only function that writes to the relay pin
+void updatePump(float soilhumidity, int waterSensorValue) {
+
+  bool soilValid = soilhumidity >= 0 && soilhumidity <= 100; // False when the sensor is broken or unplugged
+  bool tankEmpty = (waterSensorValue == LOW);
+
+  // The tank has water again, so a new empty tank alert can be sent later
+  if (!tankEmpty) {
+    tankEmptySent = false;
+  }
+
+  // The soil is dry again, so a new safety timeout alert can be sent later
+  if (soilValid && soilhumidity > soilDryLimit) {
+    pumpTimeoutSent = false;
+  }
+
+  // Warns when the soil is dry but there is no water in the tank
+  if (soilValid && soilhumidity < soilDryLimit && tankEmpty && !tankEmptySent) {
+    Serial.println("The water tank is empty, the plant cannot be watered.");
+    sendMessage("The water tank is empty, the plant cannot be watered.");
+    tankEmptySent = true;
+  }
+
+  if (pumpWorking) {
+
+    // Checks every reason to stop the pump
+    if (tankEmpty) {
+      digitalWrite(relayPin, LOW); // Turns the relay off
+      pumpWorking = false;
+      Serial.println("Stopping the pump: the water tank is empty.");
+    } else if (!soilValid) {
+      digitalWrite(relayPin, LOW); // Turns the relay off
+      pumpWorking = false;
+      Serial.println("Stopping the pump: the soil humidity reading is not valid.");
+    } else if (soilhumidity > soilWetLimit) {
+      digitalWrite(relayPin, LOW); // Turns the relay off
+      pumpWorking = false;
+      Serial.println("Stopping the pump: the soil is wet enough.");
+    } else if (millis() - pumpStartTime >= maxPumpRunTime) {
+      digitalWrite(relayPin, LOW); // Turns the relay off
+      pumpWorking = false;
+      Serial.println("Stopping the pump: the maximum run time was reached.");
+      pumpBlockedUntil = millis() + pumpPauseTime; // Leaves the water time to soak in
+      if (!pumpTimeoutSent) { // Sends the alert only once per safety stop
+        sendMessage("The pump was stopped by the safety timeout, please check the soil sensor and the tank.");
+        pumpTimeoutSent = true;
+      }
+    }
+
+  } else {
+
+    digitalWrite(relayPin, LOW); // Keeps the relay off while the pump is not working
+
+    // Starts the pump only when the soil is dry, the tank has water and the pause is over
+    if (soilValid && soilhumidity < soilDryLimit && !tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
+      digitalWrite(relayPin, HIGH); // Turns the relay on
+      pumpWorking = true;
+      pumpStartTime = millis();
+      Serial.println("Watering the plant...");
+    }
+  }
+}
+
 void loop() {
 
   // Tries to reconnect when the Wi-Fi connection is lost, without waiting here
@@ -160,7 +233,7 @@ void loop() {
   Serial.println("--- Readings ---");
   // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
   // If the value is outside the range, sends an error message and sets notWorkSent to true
-  // Otherwise, shows the soil humidity and checks whether the plant needs to be watered or not
+  // Otherwise, shows the soil humidity on the serial monitor
   if (soilhumidity < 0 || soilhumidity > 100) {
 
     if (!notWorkSent) {
@@ -181,30 +254,9 @@ void loop() {
     Serial.print("Soil humidity: ");
     Serial.print(soilhumidity, 2);
     Serial.println("%");
-
-    // Checks if the soil humidity is below 30% and there is water in the tank; if both are true it starts watering
-    if (soilhumidity < 30) {
-      if (waterSensorValue == LOW && tankEmptySent == false) {
-        Serial.println("The water tank is empty, the plant cannot be watered.");
-        sendMessage("The water tank is empty, the plant cannot be watered.");
-        tankEmptySent = true;
-
-      }
-      if (waterSensorValue == HIGH) {
-        digitalWrite(relayPin, HIGH); // Turns the relay on
-        Serial.println("Watering the plant...");
-        tankEmptySent = false;
-        pumpworking = true;
-      }
-    }
-
-    // Checks if the soil humidity is above 70% or if there is no more water in the tank; if either is true it stops watering
-    if (soilhumidity > 70 || waterSensorValue == LOW) {
-      digitalWrite(relayPin, LOW); // Turns the relay off
-      Serial.println("Stopping watering the plant...");
-      pumpworking = false;
-    }
   }
+
+  updatePump(soilhumidity, waterSensorValue); // Decides if the water pump must run or stop
 
   // NaN means the DHT sensor did not answer, so the readings cannot be used
   bool dhtValid = !isnan(humidity) && !isnan(temperature);
@@ -314,7 +366,7 @@ void handleRoot() {
   }
 
   // Checks if the water pump is on
-  if (pumpworking == false) {
+  if (pumpWorking == false) {
     waterpump += "Pump off"; // Concatenates the text into the waterpump variable
   } else {
     waterpump += "Watering the plant"; // Concatenates the text into the waterpump variable
