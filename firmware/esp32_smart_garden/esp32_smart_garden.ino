@@ -32,6 +32,14 @@ bool highHumiditySent = false; // Initializes the variable highHumiditySent
 bool dhtErrorSent = false; // Initializes the variable dhtErrorSent
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 
+// Last readings, shared by loop() and the web page so the sensors are read only once per cycle
+float soilhumidity = 0; // Soil humidity in percent
+float humidity = 0; // Air humidity in percent
+float temperature = 0; // Air temperature in degrees Celsius
+float lightIntensity = 0; // Light intensity in percent
+int waterSensorValue = HIGH; // Value of the contactless liquid sensor
+bool dhtValid = false; // False when the DHT sensor did not answer
+
 #include <WiFi.h> // Includes the WiFi library in the program to allow connection to Wi-Fi networks
 #include <HTTPClient.h> // Includes the HTTPClient library in the program to make HTTP requests to a server
 #include <WebServer.h> // Includes the WebServer library in the program to create a web server that can be used to query the IoT device
@@ -147,6 +155,19 @@ float readSoilHumidity() {
   return soilhumidity;
 }
 
+// Reads every sensor once and stores the values in the global last readings
+void readSensors() {
+  soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
+  waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
+  humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
+  temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
+  int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
+  lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+
+  // NaN means the DHT sensor did not answer, so the readings cannot be used
+  dhtValid = !isnan(humidity) && !isnan(temperature);
+}
+
 // Decides if the water pump must run or stop
 // This is the only function that writes to the relay pin
 void updatePump(float soilhumidity, int waterSensorValue) {
@@ -223,12 +244,7 @@ void loop() {
 
   server.handleClient(); // Handles any client that is communicating with the server at that moment
 
-  float soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
-  int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
-  float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
-  float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
-  int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
-  float lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+  readSensors(); // Reads all the sensors once and updates the global last readings
 
   Serial.println("--- Readings ---");
   // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
@@ -257,9 +273,6 @@ void loop() {
   }
 
   updatePump(soilhumidity, waterSensorValue); // Decides if the water pump must run or stop
-
-  // NaN means the DHT sensor did not answer, so the readings cannot be used
-  bool dhtValid = !isnan(humidity) && !isnan(temperature);
 
   // Shows the values read by the sensors on the Serial monitor
   if (dhtValid) {
@@ -348,13 +361,7 @@ void loop() {
 // Function responsible for the Web page
 void handleRoot() {
 
-  float soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
-  int waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
-  float humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
-  float temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
-  int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
-  float lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
-
+  // Uses the last readings taken by readSensors(), no sensor is read here
   String watertank = ""; // Initializes the watertank variable as an empty string
   String waterpump = ""; // Initializes the waterpump variable as an empty string
 
@@ -373,8 +380,8 @@ void handleRoot() {
   }
 
   // Shows "n/a" instead of a number when the DHT sensor did not answer
-  String temperatureText = isnan(temperature) ? "n/a" : String(temperature);
-  String humidityText = isnan(humidity) ? "n/a" : String(humidity);
+  String temperatureText = dhtValid ? String(temperature) : "n/a";
+  String humidityText = dhtValid ? String(humidity) : "n/a";
 
   // Web page code
   String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .grid { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperature humidity light' 'soilHumidity tank pump' } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; }@media screen and (max-width: 890px) {.grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperature' 'humidity''light' 'soilHumidity ''tank''pump'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} </style></head><body> <h1>IoT Garden</h1> <div class='grid'> <div class='sensor-reading'> <div class='sensor-name'>Temperature:</div> <div class='sensor-value'>" + temperatureText + "ºC</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + humidityText + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> <div class='sensor-reading'> <div class='sensor-name'>Water pump:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> </div></body></html>";
