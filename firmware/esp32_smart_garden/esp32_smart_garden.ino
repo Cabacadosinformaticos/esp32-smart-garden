@@ -31,6 +31,7 @@ bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
 bool highHumiditySent = false; // Initializes the variable highHumiditySent
 bool dhtErrorSent = false; // Initializes the variable dhtErrorSent
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
+unsigned long lastReadTime = 0; // Time of the last sensor reading and control cycle, used to time loop()
 
 // Last readings, shared by loop() and the web page so the sensors are read only once per cycle
 float soilhumidity = 0; // Soil humidity in percent
@@ -62,6 +63,7 @@ WebServer server(80); // Creates a server on port 80
 
 const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits for the Wi-Fi connection
 const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
+const unsigned long readInterval = 1000; // Time in ms between sensor readings and control cycles
 
 // Tries to connect to the Wi-Fi network and gives up after wifiConnectTimeout
 // Returns true when the connection is up
@@ -244,6 +246,13 @@ void loop() {
 
   server.handleClient(); // Handles any client that is communicating with the server at that moment
 
+  // The readings and the control cycle run only once per readInterval.
+  // loop() keeps running without delay(), so the web server stays responsive.
+  if (millis() - lastReadTime < readInterval) {
+    return;
+  }
+  lastReadTime = millis();
+
   readSensors(); // Reads all the sensors once and updates the global last readings
 
   Serial.println("--- Readings ---");
@@ -354,8 +363,6 @@ void loop() {
       highHumiditySent = false;
     }
   }
-
-  delay(1000); // Waits one second before running the loop again
 }
 
 // Function responsible for the Web page
