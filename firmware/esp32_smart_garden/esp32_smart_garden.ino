@@ -1,10 +1,16 @@
-// Smart garden: reads the sensors, waters the plant and serves a web page.
+// Smart garden (Horta IoT)
+// Sketch for an ESP32 board. It reads the DHT11 air temperature and humidity sensor,
+// the light sensor, the soil moisture sensor and the water tank level sensor, waters the
+// plant with a relay and a pump, sends WhatsApp alerts through CallMeBot and serves a web
+// page with the last readings.
+// The Wi-Fi and CallMeBot settings live in secrets.h (copy secrets.example.h).
 
-const int dhtSensorPin = 18; // DHT sensor pin connected to Arduino pin 2
-const int relayPin = 19; // Relay control pin connected to Arduino pin 4
-const int lightSensorPin = 34; // KY-018 light sensor pin connected to Arduino pin A0
-const int waterSensorPin = 35; // Contactless liquid sensor pin connected to Arduino pin A1
-const int soilSensorPin = 32; // Soil humidity sensor pin connected to Arduino pin A2
+// Pins (ESP32 GPIO numbers)
+const int dhtSensorPin = 18; // GPIO18: DHT11 data pin (temperature and air humidity)
+const int relayPin = 19; // GPIO19: relay input that switches the water pump
+const int lightSensorPin = 34; // GPIO34 (ADC1): KY-018 light sensor analog output
+const int waterSensorPin = 35; // GPIO35: contactless liquid level sensor digital output (HIGH = water in the tank)
+const int soilSensorPin = 32; // GPIO32 (ADC1): soil moisture sensor analog output
 
 // ADC and soil sensor calibration
 const int adcMaxValue = 4095; // 12-bit ADC of the ESP32
@@ -19,17 +25,18 @@ const float soilWetLimit = 70; // soil humidity (percent) above which the pump s
 const unsigned long maxPumpRunTime = 30000; // safety timeout in ms, the pump is always stopped after this time
 const unsigned long pumpPauseTime = 60000; // ms the pump stays off after a safety stop so the water can soak in
 
-bool notWorkSent = false; // Initializes the variable notWorkSent
-bool tankEmptySent = false; // Initializes the variable tankEmptySent
+// Global state flags and timers used by loop()
+bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
+bool tankEmptySent = false; // true after the empty tank alert was sent, so it is sent only once
 bool pumpWorking = false; // True while the water pump is running
 unsigned long pumpStartTime = 0; // Time when the pump started, used by the safety timeout
 unsigned long pumpBlockedUntil = 0; // Time until the pump has to stay off after a safety stop
 bool pumpTimeoutSent = false; // True after the safety timeout alert was sent
-bool lowTempSent = false; // Initializes the variable lowTempSent
-bool highTempSent = false; // Initializes the variable highTempSent
-bool lowHumiditySent = false; // Initializes the variable lowHumiditySent
-bool highHumiditySent = false; // Initializes the variable highHumiditySent
-bool dhtErrorSent = false; // Initializes the variable dhtErrorSent
+bool lowTempSent = false; // true after the low temperature alert was sent, so it is sent only once
+bool highTempSent = false; // true after the high temperature alert was sent, so it is sent only once
+bool lowHumiditySent = false; // true after the low air humidity alert was sent, so it is sent only once
+bool highHumiditySent = false; // true after the high air humidity alert was sent, so it is sent only once
+bool dhtErrorSent = false; // true after the DHT error alert was sent, so it is sent only once
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 unsigned long lastReadTime = 0; // Time of the last sensor reading and control cycle, used to time loop()
 
