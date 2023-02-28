@@ -39,6 +39,7 @@ bool highHumiditySent = false; // true after the high air humidity alert was sen
 bool dhtErrorSent = false; // true after the DHT error alert was sent, so it is sent only once
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 unsigned long lastReadTime = 0; // Time of the last sensor reading and control cycle, used to time loop()
+unsigned long nextAlertTime = 0; // Time before which no alert is attempted again, set after a failed send
 
 // Last readings, shared by loop() and the web page so the sensors are read only once per cycle
 float soilhumidity = 0; // Soil humidity in percent
@@ -71,6 +72,7 @@ WebServer server(80); // Creates a server on port 80
 const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits for the Wi-Fi connection
 const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
 const unsigned long readInterval = 1000; // Time in ms between sensor readings and control cycles
+const unsigned long alertRetryInterval = 30000; // Time in ms to wait after a failed send before trying again
 
 // Tries to connect to the Wi-Fi network and gives up after wifiConnectTimeout
 // Returns true when the connection is up
@@ -156,6 +158,22 @@ bool sendMessage(String message){
   return httpResponseCode == 200;
 }
 
+// Sends an alert message, but not faster than alertRetryInterval after a failure
+// Returns true only when the message was sent
+bool sendAlert(String message) {
+
+  // A previous send failed, so the alert waits before trying again
+  if ((long)(millis() - nextAlertTime) < 0) {
+    return false;
+  }
+
+  bool sent = sendMessage(message);
+  if (!sent) {
+    nextAlertTime = millis() + alertRetryInterval;
+  }
+  return sent;
+}
+
 // Reads the soil humidity sensor, converts the raw value to voltage and then to a percentage
 float readSoilHumidity() {
   int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
@@ -197,8 +215,9 @@ void updatePump(float soilhumidity, int waterSensorValue) {
   // Warns when the soil is dry but there is no water in the tank
   if (soilValid && soilhumidity < soilDryLimit && tankEmpty && !tankEmptySent) {
     Serial.println("The water tank is empty, the plant cannot be watered.");
-    sendMessage("The water tank is empty, the plant cannot be watered.");
-    tankEmptySent = true;
+    if (sendAlert("The water tank is empty, the plant cannot be watered.")) {
+      tankEmptySent = true;
+    }
   }
 
   if (pumpWorking) {
@@ -222,8 +241,9 @@ void updatePump(float soilhumidity, int waterSensorValue) {
       Serial.println("Stopping the pump: the maximum run time was reached.");
       pumpBlockedUntil = millis() + pumpPauseTime; // Leaves the water time to soak in
       if (!pumpTimeoutSent) { // Sends the alert only once per safety stop
-        sendMessage("The pump was stopped by the safety timeout, please check the soil sensor and the tank.");
-        pumpTimeoutSent = true;
+        if (sendAlert("The pump was stopped by the safety timeout, please check the soil sensor and the tank.")) {
+          pumpTimeoutSent = true;
+        }
       }
     }
 
@@ -272,9 +292,9 @@ void loop() {
 
     Serial.println("Error: Humidity value outside the valid range (0-100%)");
 
-    sendMessage("The soil humidity sensor is not working!");
-
-    notWorkSent = true;
+    if (sendAlert("The soil humidity sensor is not working!")) {
+      notWorkSent = true;
+    }
 
     }
 
@@ -306,9 +326,9 @@ void loop() {
 
     Serial.println("Error: could not read the DHT11 sensor");
 
-    sendMessage("The temperature and humidity sensor is not working!");
-
-    dhtErrorSent = true;
+    if (sendAlert("The temperature and humidity sensor is not working!")) {
+      dhtErrorSent = true;
+    }
 
   }
 
@@ -332,8 +352,9 @@ void loop() {
     // Checks if the temperature is too low
     if (temperature < 18 && !lowTempSent) {
       Serial.println("The temperature is below the ideal for the plant.");
-      lowTempSent = true;
-       sendMessage("The temperature is below the ideal for the plant.");
+      if (sendAlert("The temperature is below the ideal for the plant.")) {
+        lowTempSent = true;
+      }
     }
     else if (temperature >= 18 && lowTempSent) {
       lowTempSent = false;
@@ -342,8 +363,9 @@ void loop() {
     // Checks if the temperature is too high
     if (temperature > 26 && !highTempSent) {
       Serial.println("The temperature is above the ideal for the plant.");
-      highTempSent = true;
-       sendMessage("The temperature is above the ideal for the plant.");
+      if (sendAlert("The temperature is above the ideal for the plant.")) {
+        highTempSent = true;
+      }
     }
     else if (temperature <= 26 && highTempSent) {
       highTempSent = false;
@@ -352,8 +374,9 @@ void loop() {
     // Checks if the humidity is too low
     if (humidity < 50 && !lowHumiditySent) {
       Serial.println("The air humidity is below the ideal for the plant.");
-      lowHumiditySent = true;
-    sendMessage("The air humidity is below the ideal for the plant.");
+      if (sendAlert("The air humidity is below the ideal for the plant.")) {
+        lowHumiditySent = true;
+      }
     }
     else if (humidity >= 50 && lowHumiditySent) {
       lowHumiditySent = false;
@@ -362,8 +385,9 @@ void loop() {
     // Checks if the humidity is too high
     if (humidity > 70 && !highHumiditySent) {
       Serial.println("The air humidity is above the ideal for the plant.");
-      sendMessage("The air humidity is above the ideal for the plant.");
-      highHumiditySent = true;
+      if (sendAlert("The air humidity is above the ideal for the plant.")) {
+        highHumiditySent = true;
+      }
     }
 
     else if (humidity <= 70 && highHumiditySent) {
