@@ -15,9 +15,11 @@ const int soilSensorPin = 32; // GPIO32 (ADC1): soil moisture sensor analog outp
 // ADC and soil sensor calibration
 const int adcMaxValue = 4095; // 12-bit ADC of the ESP32
 const float adcReferenceVoltage = 3.3; // ESP32 ADC input range, not 5 V
-// These two values describe the sensor curve and must be calibrated for the sensor in use
-const float soilVoltageDry = 0.92; // voltage that is converted to 0 % (offset of the sensor curve)
-const float soilVoltagePerPercent = 0.08; // volts per 1 % of soil humidity (slope of the sensor curve)
+// These two values describe the sensor curve and must be calibrated for the sensor in use.
+// They were measured as 0.92 V and 0.08 V per % on a 5 V scale, so they are scaled by 3.3 / 5
+// to keep the same curve with the real 3.3 V reference of the ESP32.
+const float soilVoltageDry = 0.92 * 3.3 / 5.0; // voltage that is converted to 0 % (offset of the sensor curve)
+const float soilVoltagePerPercent = 0.08 * 3.3 / 5.0; // volts per 1 % of soil humidity (slope of the sensor curve)
 
 // Watering thresholds
 const float soilDryLimit = 30; // soil humidity (percent) below which the pump starts
