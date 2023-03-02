@@ -1,6 +1,6 @@
 # Smart Garden: IoT garden with an ESP32
 
-This is our project for the Integrated Project subject of the CTeSP in Informatics at AESM. An ESP32 watches a plant with several sensors, waters it automatically with a relay-controlled pump, sends WhatsApp alerts when the conditions are bad and serves a small web page with the live readings. The project is called "Horta IoT com Arduino: supervisão automatizada para plantas saudaveis" in the delivered report.
+This is our project for the Integrated Project subject of the CTeSP in Informatics at AESM. An ESP32 watches a plant with several sensors, waters it automatically with a relay-controlled pump, sends WhatsApp alerts when the conditions are bad and serves a small web page with the live readings. The project is called "Horta IoT com Arduino: supervisão automatizada para plantas saudaveis" in our project report.
 
 ## Features
 
@@ -85,7 +85,7 @@ esp32-smart-garden/
       secrets.example.h        template for the local secrets.h
   docs/
     REPORT.md                  project report in English
-    project-report.pt.docx     delivered project report (Portuguese)
+    project-report.pt.docx     project report (Portuguese)
     schedule-original.mpp      MS Project schedule, initial plan
     schedule-edited.mpp        MS Project schedule, adjusted
   README.md
@@ -116,5 +116,5 @@ Integrated Project, teacher Fernando Barros. CTeSP in Informatics (Curso Técnic
 ## Documentation
 
 - [Project report in English](docs/REPORT.md)
-- [Delivered project report in Portuguese](docs/project-report.pt.docx)
+- [Project report in Portuguese](docs/project-report.pt.docx)
 - Schedules: [initial plan](docs/schedule-original.mpp) and [adjusted schedule](docs/schedule-edited.mpp)
