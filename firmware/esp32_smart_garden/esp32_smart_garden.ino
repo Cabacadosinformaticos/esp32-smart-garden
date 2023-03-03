@@ -5,28 +5,6 @@
 // page with the last readings.
 // The Wi-Fi and CallMeBot settings live in secrets.h (copy secrets.example.h).
 
-// Pins (ESP32 GPIO numbers)
-const int dhtSensorPin = 18; // GPIO18: DHT11 data pin (temperature and air humidity)
-const int relayPin = 19; // GPIO19: relay input that switches the water pump
-const int lightSensorPin = 34; // GPIO34 (ADC1): KY-018 light sensor analog output
-const int waterSensorPin = 35; // GPIO35: contactless liquid level sensor digital output (HIGH = water in the tank)
-const int soilSensorPin = 32; // GPIO32 (ADC1): soil moisture sensor analog output
-
-// ADC and soil sensor calibration
-const int adcMaxValue = 4095; // 12-bit ADC of the ESP32
-const float adcReferenceVoltage = 3.3; // ESP32 ADC input range, not 5 V
-// These two values describe the sensor curve and must be calibrated for the sensor in use.
-// They were measured as 0.92 V and 0.08 V per % on a 5 V scale, so they are scaled by 3.3 / 5
-// to keep the same curve with the real 3.3 V reference of the ESP32.
-const float soilVoltageDry = 0.92 * 3.3 / 5.0; // voltage that is converted to 0 % (offset of the sensor curve)
-const float soilVoltagePerPercent = 0.08 * 3.3 / 5.0; // volts per 1 % of soil humidity (slope of the sensor curve)
-
-// Watering thresholds
-const float soilDryLimit = 30; // soil humidity (percent) below which the pump starts
-const float soilWetLimit = 70; // soil humidity (percent) above which the pump stops
-const unsigned long maxPumpRunTime = 30000; // safety timeout in ms, the pump is always stopped after this time
-const unsigned long pumpPauseTime = 60000; // ms the pump stays off after a safety stop so the water can soak in
-
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
 bool tankEmptySent = false; // true after the empty tank alert was sent, so it is sent only once
@@ -57,6 +35,7 @@ bool dhtValid = false; // False when the DHT sensor did not answer
 #include <UrlEncode.h> // Includes the UrlEncode library in the program to encode URLs to be sent as parameters in HTTP requests
 #include <DHT.h> // Includes the DHT library in the program to allow the use of the humidity and temperature sensor
 #include "secrets.h" // Includes the Wi-Fi, phone number and API key defined in the secrets.h file
+#include "config.h" // Includes the pins, calibration, threshold and timing constants defined in the config.h file
 #define DHTTYPE DHT11 // Defines the type of DHT sensor being used (DHT11 in this case)
 DHT dht(dhtSensorPin, DHTTYPE); // Creates a DHT library instance with the DHT sensor pin and the type defined above
 
@@ -70,11 +49,6 @@ String phoneNumber = WHATSAPP_PHONE; // Defines the phone number that will recei
 String apiKey = CALLMEBOT_API_KEY; // Defines the API key used to send text messages
 
 WebServer server(80); // Creates a server on port 80
-
-const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits for the Wi-Fi connection
-const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
-const unsigned long readInterval = 1000; // Time in ms between sensor readings and control cycles
-const unsigned long alertRetryInterval = 30000; // Time in ms to wait after a failed send before trying again
 
 // Tries to connect to the Wi-Fi network and gives up after wifiConnectTimeout
 // Returns true when the connection is up
