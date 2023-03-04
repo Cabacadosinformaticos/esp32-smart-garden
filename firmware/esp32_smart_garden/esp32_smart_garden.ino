@@ -5,6 +5,8 @@
 // page with the last readings.
 // The Wi-Fi and CallMeBot settings live in secrets.h (copy secrets.example.h).
 
+#include "readings.h" // Includes the Readings struct that groups the last sensor readings
+
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
 bool tankEmptySent = false; // true after the empty tank alert was sent, so it is sent only once
@@ -22,12 +24,7 @@ unsigned long lastReadTime = 0; // Time of the last sensor reading and control c
 unsigned long nextAlertTime = 0; // Time before which no alert is attempted again, set after a failed send
 
 // Last readings, shared by loop() and the web page so the sensors are read only once per cycle
-float soilhumidity = 0; // Soil humidity in percent
-float humidity = 0; // Air humidity in percent
-float temperature = 0; // Air temperature in degrees Celsius
-float lightIntensity = 0; // Light intensity in percent
-int waterSensorValue = HIGH; // Value of the contactless liquid sensor
-bool dhtValid = false; // False when the DHT sensor did not answer
+Readings readings = {0, false, NAN, NAN, false, 0, false}; // Soil percent, soil valid, temperature, humidity, DHT valid, light percent, tank empty
 
 #include <WiFi.h> // Includes the WiFi library in the program to allow connection to Wi-Fi networks
 #include <HTTPClient.h> // Includes the HTTPClient library in the program to make HTTP requests to a server
@@ -154,42 +151,40 @@ bool sendAlert(String message) {
 float readSoilHumidity() {
   int soilSensorValue = analogRead(soilSensorPin); // Reads the value of the soil humidity sensor
   float voltage = soilSensorValue * (adcReferenceVoltage / (float)adcMaxValue); // Calculates the voltage from the value read from the soil humidity sensor
-  float soilhumidity = (voltage - soilVoltageDry) / soilVoltagePerPercent; // Calculates the soil humidity and converts the value to a scale from 0 to 100
-  return soilhumidity;
+  float soilPercent = (voltage - soilVoltageDry) / soilVoltagePerPercent; // Calculates the soil humidity and converts the value to a scale from 0 to 100
+  return soilPercent;
 }
 
 // Reads every sensor once and stores the values in the global last readings
 void readSensors() {
-  soilhumidity = readSoilHumidity(); // Reads the soil humidity as a percentage
-  waterSensorValue = digitalRead(waterSensorPin); // Reads the value of the contactless liquid sensor
-  humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
-  temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
+  readings.soil = readSoilHumidity(); // Reads the soil humidity as a percentage
+  readings.soilValid = readings.soil >= 0 && readings.soil <= 100; // False when the sensor is broken or unplugged
+  readings.tankEmpty = (digitalRead(waterSensorPin) == LOW); // True when the contactless liquid sensor reads LOW
+  readings.humidity = dht.readHumidity(); // Reads the relative air humidity from the DHT humidity and temperature sensor
+  readings.temperature = dht.readTemperature(); // Reads the temperature from the DHT humidity and temperature sensor
   int lightSensorValue = analogRead(lightSensorPin); // Reads the value of the light intensity sensor
-  lightIntensity = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
+  readings.light = map(lightSensorValue, 0, adcMaxValue, 100, 0); // Converts the value read from the light intensity sensor to a scale from 0 to 100
 
   // NaN means the DHT sensor did not answer, so the readings cannot be used
-  dhtValid = !isnan(humidity) && !isnan(temperature);
+  readings.dhtValid = !isnan(readings.humidity) && !isnan(readings.temperature);
 }
 
 // Decides if the water pump must run or stop
 // This is the only function that writes to the relay pin
-void updatePump(float soilhumidity, int waterSensorValue) {
-
-  bool soilValid = soilhumidity >= 0 && soilhumidity <= 100; // False when the sensor is broken or unplugged
-  bool tankEmpty = (waterSensorValue == LOW);
+void updatePump(const Readings& r) {
 
   // The tank has water again, so a new empty tank alert can be sent later
-  if (!tankEmpty) {
+  if (!r.tankEmpty) {
     tankEmptySent = false;
   }
 
   // The soil is dry again, so a new safety timeout alert can be sent later
-  if (soilValid && soilhumidity > soilDryLimit) {
+  if (r.soilValid && r.soil > soilDryLimit) {
     pumpTimeoutSent = false;
   }
 
   // Warns when the soil is dry but there is no water in the tank
-  if (soilValid && soilhumidity < soilDryLimit && tankEmpty && !tankEmptySent) {
+  if (r.soilValid && r.soil < soilDryLimit && r.tankEmpty && !tankEmptySent) {
     Serial.println("The water tank is empty, the plant cannot be watered.");
     if (sendAlert("The water tank is empty, the plant cannot be watered.")) {
       tankEmptySent = true;
@@ -199,15 +194,15 @@ void updatePump(float soilhumidity, int waterSensorValue) {
   if (pumpWorking) {
 
     // Checks every reason to stop the pump
-    if (tankEmpty) {
+    if (r.tankEmpty) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the water tank is empty.");
-    } else if (!soilValid) {
+    } else if (!r.soilValid) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the soil humidity reading is not valid.");
-    } else if (soilhumidity > soilWetLimit) {
+    } else if (r.soil > soilWetLimit) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the soil is wet enough.");
@@ -228,7 +223,7 @@ void updatePump(float soilhumidity, int waterSensorValue) {
     digitalWrite(relayPin, LOW); // Keeps the relay off while the pump is not working
 
     // Starts the pump only when the soil is dry, the tank has water and the pause is over
-    if (soilValid && soilhumidity < soilDryLimit && !tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
+    if (r.soilValid && r.soil < soilDryLimit && !r.tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
       digitalWrite(relayPin, HIGH); // Turns the relay on
       pumpWorking = true;
       pumpStartTime = millis();
@@ -262,7 +257,7 @@ void loop() {
   // Checks if the value read by the soil humidity sensor is inside the valid range (0-100%)
   // If the value is outside the range, sends an error message and sets notWorkSent to true
   // Otherwise, shows the soil humidity on the serial monitor
-  if (soilhumidity < 0 || soilhumidity > 100) {
+  if (!readings.soilValid) {
 
     if (!notWorkSent) {
 
@@ -274,28 +269,28 @@ void loop() {
 
     }
 
-   } else if (soilhumidity >= 0 && soilhumidity <= 100) {
+   } else if (readings.soilValid) {
 
     notWorkSent = false;
 
     // Shows the result on the serial monitor
     Serial.print("Soil humidity: ");
-    Serial.print(soilhumidity, 2);
+    Serial.print(readings.soil, 2);
     Serial.println("%");
   }
 
-  updatePump(soilhumidity, waterSensorValue); // Decides if the water pump must run or stop
+  updatePump(readings); // Decides if the water pump must run or stop
 
   // Shows the values read by the sensors on the Serial monitor
-  if (dhtValid) {
+  if (readings.dhtValid) {
 
     dhtErrorSent = false; // The sensor is working again
 
     Serial.print("Humidity and temperature sensor: ");
     Serial.print("Humidity = ");
-    Serial.print(humidity);
+    Serial.print(readings.humidity);
     Serial.print("%, Temperature = ");
-    Serial.print(temperature);
+    Serial.print(readings.temperature);
     Serial.println(" ºC");
 
   } else if (!dhtErrorSent) {
@@ -310,12 +305,12 @@ void loop() {
 
   Serial.print("Light sensor: ");
   Serial.print("Light intensity = ");
-  Serial.print(lightIntensity);
+  Serial.print(readings.light);
   Serial.println("%");
 
   // Checks if there is water in the tank and shows the result on the Serial monitor
   Serial.print("Contactless liquid sensor: ");
-  if (waterSensorValue == LOW) {
+  if (readings.tankEmpty) {
     Serial.println("No liquid detected");
   } else {
     Serial.println("Liquid detected");
@@ -323,50 +318,50 @@ void loop() {
 
   // Alerts to send if the plant is facing an adverse situation
   // All the temperature and humidity checks are skipped when the sensor did not answer
-  if (dhtValid) {
+  if (readings.dhtValid) {
 
     // Checks if the temperature is too low
-    if (temperature < 18 && !lowTempSent) {
+    if (readings.temperature < 18 && !lowTempSent) {
       Serial.println("The temperature is below the ideal for the plant.");
       if (sendAlert("The temperature is below the ideal for the plant.")) {
         lowTempSent = true;
       }
     }
-    else if (temperature >= 18 && lowTempSent) {
+    else if (readings.temperature >= 18 && lowTempSent) {
       lowTempSent = false;
     }
 
     // Checks if the temperature is too high
-    if (temperature > 26 && !highTempSent) {
+    if (readings.temperature > 26 && !highTempSent) {
       Serial.println("The temperature is above the ideal for the plant.");
       if (sendAlert("The temperature is above the ideal for the plant.")) {
         highTempSent = true;
       }
     }
-    else if (temperature <= 26 && highTempSent) {
+    else if (readings.temperature <= 26 && highTempSent) {
       highTempSent = false;
     }
 
     // Checks if the humidity is too low
-    if (humidity < 50 && !lowHumiditySent) {
+    if (readings.humidity < 50 && !lowHumiditySent) {
       Serial.println("The air humidity is below the ideal for the plant.");
       if (sendAlert("The air humidity is below the ideal for the plant.")) {
         lowHumiditySent = true;
       }
     }
-    else if (humidity >= 50 && lowHumiditySent) {
+    else if (readings.humidity >= 50 && lowHumiditySent) {
       lowHumiditySent = false;
     }
 
     // Checks if the humidity is too high
-    if (humidity > 70 && !highHumiditySent) {
+    if (readings.humidity > 70 && !highHumiditySent) {
       Serial.println("The air humidity is above the ideal for the plant.");
       if (sendAlert("The air humidity is above the ideal for the plant.")) {
         highHumiditySent = true;
       }
     }
 
-    else if (humidity <= 70 && highHumiditySent) {
+    else if (readings.humidity <= 70 && highHumiditySent) {
       highHumiditySent = false;
     }
   }
@@ -380,7 +375,7 @@ void handleRoot() {
   String waterpump = ""; // Initializes the waterpump variable as an empty string
 
   // Checks if there is water in the tank
-  if (waterSensorValue == LOW) {
+  if (readings.tankEmpty) {
     watertank += "Tank empty"; // Concatenates the text into the watertank variable
   } else {
     watertank += "Tank with water"; // Concatenates the text into the watertank variable
@@ -394,8 +389,8 @@ void handleRoot() {
   }
 
   // Shows "n/a" instead of a number when the DHT sensor did not answer
-  String temperatureText = dhtValid ? String(temperature) : "n/a";
-  String humidityText = dhtValid ? String(humidity) : "n/a";
+  String temperatureText = readings.dhtValid ? String(readings.temperature) : "n/a";
+  String humidityText = readings.dhtValid ? String(readings.humidity) : "n/a";
 
   // Web page code, built piece by piece so it is easier to read
   String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> ";
@@ -418,10 +413,10 @@ void handleRoot() {
   html += "<div class='sensor-reading' style='grid-area: humidity'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + humidityText + "%</div> </div> ";
 
   // Light card
-  html += "<div class='sensor-reading' style='grid-area: light'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(lightIntensity) + "%</div> </div> ";
+  html += "<div class='sensor-reading' style='grid-area: light'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(readings.light) + "%</div> </div> ";
 
   // Soil humidity card
-  html += "<div class='sensor-reading' style='grid-area: soilHumidity'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(soilhumidity) + "%</div> </div> ";
+  html += "<div class='sensor-reading' style='grid-area: soilHumidity'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(readings.soil) + "%</div> </div> ";
 
   // Water tank card
   html += "<div class='sensor-reading' style='grid-area: tank'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> ";
