@@ -4,6 +4,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdint.h> // Needed for the fixed width integer types used below
+
 // Pins (ESP32 GPIO numbers)
 const int dhtSensorPin = 18; // GPIO18: DHT11 data pin (temperature and air humidity)
 const int relayPin = 19; // GPIO19: relay input that switches the water pump
@@ -31,5 +33,13 @@ const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits
 const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
 const unsigned long readInterval = 1000; // Time in ms between sensor readings and control cycles
 const unsigned long alertRetryInterval = 30000; // Time in ms to wait after a failed send before trying again
+
+// History buffer
+// A build flag can shorten the interval so the simulator fills the buffer faster.
+#ifndef HISTORY_INTERVAL_MS
+#define HISTORY_INTERVAL_MS 60000UL // Time in ms between two history samples (one per minute)
+#endif
+const uint16_t historyCapacity = 180; // Number of samples kept in RAM (3 hours at one sample per minute)
+const unsigned long historyIntervalMs = HISTORY_INTERVAL_MS; // Time in ms between two history samples
 
 #endif

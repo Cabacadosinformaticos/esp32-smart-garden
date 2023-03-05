@@ -6,6 +6,7 @@
 // The Wi-Fi and CallMeBot settings live in secrets.h (copy secrets.example.h).
 
 #include "readings.h" // Includes the Readings struct that groups the last sensor readings
+#include "history.h" // Includes the in-RAM history ring buffer used by the charts
 
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
@@ -22,6 +23,8 @@ bool dhtErrorSent = false; // true after the DHT error alert was sent, so it is 
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 unsigned long lastReadTime = 0; // Time of the last sensor reading and control cycle, used to time loop()
 unsigned long nextAlertTime = 0; // Time before which no alert is attempted again, set after a failed send
+unsigned long lastHistoryTime = 0; // Time of the last sample stored in the history buffer
+bool historyStarted = false; // False until the first sample is stored, so the charts start with a point
 
 // Last readings, shared by loop() and the web page so the sensors are read only once per cycle
 Readings readings = {0, false, NAN, NAN, false, 0, false}; // Soil percent, soil valid, temperature, humidity, DHT valid, light percent, tank empty
@@ -280,6 +283,14 @@ void loop() {
   }
 
   updatePump(readings); // Decides if the water pump must run or stop
+
+  // Stores one sample every historyIntervalMs, and also on the first control
+  // cycle so the charts always have a starting point
+  if (!historyStarted || millis() - lastHistoryTime >= historyIntervalMs) {
+    historyAdd(readings, pumpWorking);
+    lastHistoryTime = millis();
+    historyStarted = true;
+  }
 
   // Shows the values read by the sensors on the Serial monitor
   if (readings.dhtValid) {
