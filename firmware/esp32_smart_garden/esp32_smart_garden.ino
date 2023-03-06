@@ -7,6 +7,7 @@
 
 #include "readings.h" // Includes the Readings struct that groups the last sensor readings
 #include "history.h" // Includes the in-RAM history ring buffer used by the charts
+#include "settings.h" // Includes the runtime thresholds loaded from flash
 
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
@@ -81,6 +82,9 @@ void setup() {
   pinMode(lightSensorPin, INPUT); // Sets the KY-018 light sensor pin as input
   pinMode(soilSensorPin, INPUT); // Sets the soil humidity sensor pin as input
   pinMode(relayPin, OUTPUT); // Sets the relay pin as output
+
+  settingsBegin(); // Loads the thresholds from flash, with validation
+  Serial.println("Settings loaded");
 
   // Connects to the Wi-Fi network, setup continues even if it fails
   connectWiFi();
@@ -182,12 +186,12 @@ void updatePump(const Readings& r) {
   }
 
   // The soil is dry again, so a new safety timeout alert can be sent later
-  if (r.soilValid && r.soil > soilDryLimit) {
+  if (r.soilValid && r.soil > settings.soilDry) {
     pumpTimeoutSent = false;
   }
 
   // Warns when the soil is dry but there is no water in the tank
-  if (r.soilValid && r.soil < soilDryLimit && r.tankEmpty && !tankEmptySent) {
+  if (r.soilValid && r.soil < settings.soilDry && r.tankEmpty && !tankEmptySent) {
     Serial.println("The water tank is empty, the plant cannot be watered.");
     if (sendAlert("The water tank is empty, the plant cannot be watered.")) {
       tankEmptySent = true;
@@ -205,15 +209,15 @@ void updatePump(const Readings& r) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the soil humidity reading is not valid.");
-    } else if (r.soil > soilWetLimit) {
+    } else if (r.soil > settings.soilWet) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the soil is wet enough.");
-    } else if (millis() - pumpStartTime >= maxPumpRunTime) {
+    } else if (millis() - pumpStartTime >= settings.maxPumpSeconds * 1000UL) {
       digitalWrite(relayPin, LOW); // Turns the relay off
       pumpWorking = false;
       Serial.println("Stopping the pump: the maximum run time was reached.");
-      pumpBlockedUntil = millis() + pumpPauseTime; // Leaves the water time to soak in
+      pumpBlockedUntil = millis() + settings.pauseSeconds * 1000UL; // Leaves the water time to soak in
       if (!pumpTimeoutSent) { // Sends the alert only once per safety stop
         if (sendAlert("The pump was stopped by the safety timeout, please check the soil sensor and the tank.")) {
           pumpTimeoutSent = true;
@@ -226,7 +230,7 @@ void updatePump(const Readings& r) {
     digitalWrite(relayPin, LOW); // Keeps the relay off while the pump is not working
 
     // Starts the pump only when the soil is dry, the tank has water and the pause is over
-    if (r.soilValid && r.soil < soilDryLimit && !r.tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
+    if (r.soilValid && r.soil < settings.soilDry && !r.tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
       digitalWrite(relayPin, HIGH); // Turns the relay on
       pumpWorking = true;
       pumpStartTime = millis();
@@ -332,47 +336,47 @@ void loop() {
   if (readings.dhtValid) {
 
     // Checks if the temperature is too low
-    if (readings.temperature < 18 && !lowTempSent) {
+    if (readings.temperature < settings.tempMin && !lowTempSent) {
       Serial.println("The temperature is below the ideal for the plant.");
       if (sendAlert("The temperature is below the ideal for the plant.")) {
         lowTempSent = true;
       }
     }
-    else if (readings.temperature >= 18 && lowTempSent) {
+    else if (readings.temperature >= settings.tempMin && lowTempSent) {
       lowTempSent = false;
     }
 
     // Checks if the temperature is too high
-    if (readings.temperature > 26 && !highTempSent) {
+    if (readings.temperature > settings.tempMax && !highTempSent) {
       Serial.println("The temperature is above the ideal for the plant.");
       if (sendAlert("The temperature is above the ideal for the plant.")) {
         highTempSent = true;
       }
     }
-    else if (readings.temperature <= 26 && highTempSent) {
+    else if (readings.temperature <= settings.tempMax && highTempSent) {
       highTempSent = false;
     }
 
     // Checks if the humidity is too low
-    if (readings.humidity < 50 && !lowHumiditySent) {
+    if (readings.humidity < settings.humMin && !lowHumiditySent) {
       Serial.println("The air humidity is below the ideal for the plant.");
       if (sendAlert("The air humidity is below the ideal for the plant.")) {
         lowHumiditySent = true;
       }
     }
-    else if (readings.humidity >= 50 && lowHumiditySent) {
+    else if (readings.humidity >= settings.humMin && lowHumiditySent) {
       lowHumiditySent = false;
     }
 
     // Checks if the humidity is too high
-    if (readings.humidity > 70 && !highHumiditySent) {
+    if (readings.humidity > settings.humMax && !highHumiditySent) {
       Serial.println("The air humidity is above the ideal for the plant.");
       if (sendAlert("The air humidity is above the ideal for the plant.")) {
         highHumiditySent = true;
       }
     }
 
-    else if (readings.humidity <= 70 && highHumiditySent) {
+    else if (readings.humidity <= settings.humMax && highHumiditySent) {
       highHumiditySent = false;
     }
   }

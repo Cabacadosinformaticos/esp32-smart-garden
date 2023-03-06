@@ -22,11 +22,19 @@ const float adcReferenceVoltage = 3.3; // ESP32 ADC input range, not 5 V
 const float soilVoltageDry = 0.92 * 3.3 / 5.0; // voltage that is converted to 0 % (offset of the sensor curve)
 const float soilVoltagePerPercent = 0.08 * 3.3 / 5.0; // volts per 1 % of soil humidity (slope of the sensor curve)
 
-// Watering thresholds
-const float soilDryLimit = 30; // soil humidity (percent) below which the pump starts
-const float soilWetLimit = 70; // soil humidity (percent) above which the pump stops
-const unsigned long maxPumpRunTime = 30000; // safety timeout in ms, the pump is always stopped after this time
-const unsigned long pumpPauseTime = 60000; // ms the pump stays off after a safety stop so the water can soak in
+// Watering and alert thresholds
+// These are only the default values, the runtime settings live in settings.h and
+// are loaded from flash, so the web page can change them without a new upload.
+const float defaultSoilDry = 30; // soil humidity (percent) below which the pump starts
+const float defaultSoilWet = 70; // soil humidity (percent) above which the pump stops
+const float defaultTempMin = 18; // degrees C below which the low temperature alert is sent
+const float defaultTempMax = 26; // degrees C above which the high temperature alert is sent
+const float defaultHumMin = 50; // air humidity (percent) below which the low air humidity alert is sent
+const float defaultHumMax = 70; // air humidity (percent) above which the high air humidity alert is sent
+const uint16_t defaultMaxPumpSeconds = 30; // safety timeout in seconds, the pump is always stopped after this time
+const uint16_t defaultPauseSeconds = 60; // seconds the pump stays off after a safety stop so the water can soak in
+const bool defaultDailySummary = false; // true to send one WhatsApp summary per day
+const uint8_t defaultSummaryHour = 20; // hour of the day (0..23) when the daily summary is sent
 
 // Timing
 const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits for the Wi-Fi connection
