@@ -8,14 +8,13 @@
 #include "readings.h" // Includes the Readings struct that groups the last sensor readings
 #include "history.h" // Includes the in-RAM history ring buffer used by the charts
 #include "settings.h" // Includes the runtime thresholds loaded from flash
+#include "pump.h" // Includes the pump state machine, the only code that writes the relay
 
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
 bool tankEmptySent = false; // true after the empty tank alert was sent, so it is sent only once
-bool pumpWorking = false; // True while the water pump is running
-unsigned long pumpStartTime = 0; // Time when the pump started, used by the safety timeout
-unsigned long pumpBlockedUntil = 0; // Time until the pump has to stay off after a safety stop
 bool pumpTimeoutSent = false; // True after the safety timeout alert was sent
+bool pumpTimeoutPending = false; // True while the safety timeout alert still has to be sent
 bool lowTempSent = false; // true after the low temperature alert was sent, so it is sent only once
 bool highTempSent = false; // true after the high temperature alert was sent, so it is sent only once
 bool lowHumiditySent = false; // true after the low air humidity alert was sent, so it is sent only once
@@ -81,7 +80,7 @@ void setup() {
   pinMode(waterSensorPin, INPUT); // Sets the contactless liquid sensor pin as input
   pinMode(lightSensorPin, INPUT); // Sets the KY-018 light sensor pin as input
   pinMode(soilSensorPin, INPUT); // Sets the soil humidity sensor pin as input
-  pinMode(relayPin, OUTPUT); // Sets the relay pin as output
+  pumpBegin(); // Sets the relay pin as output and keeps the pump off
 
   settingsBegin(); // Loads the thresholds from flash, with validation
   Serial.println("Settings loaded");
@@ -176,65 +175,40 @@ void readSensors() {
   readings.dhtValid = !isnan(readings.humidity) && !isnan(readings.temperature);
 }
 
-// Decides if the water pump must run or stop
-// This is the only function that writes to the relay pin
-void updatePump(const Readings& r) {
+// Sends the WhatsApp alerts that belong to the pump: the empty tank warning and
+// the safety timeout warning. Every alert is sent only once per event, and a failed
+// send is retried later through sendAlert().
+void checkPumpAlerts() {
 
   // The tank has water again, so a new empty tank alert can be sent later
-  if (!r.tankEmpty) {
+  if (!readings.tankEmpty) {
     tankEmptySent = false;
   }
 
-  // The soil is dry again, so a new safety timeout alert can be sent later
-  if (r.soilValid && r.soil > settings.soilDry) {
-    pumpTimeoutSent = false;
-  }
-
   // Warns when the soil is dry but there is no water in the tank
-  if (r.soilValid && r.soil < settings.soilDry && r.tankEmpty && !tankEmptySent) {
+  if (readings.soilValid && readings.soil < settings.soilDry && readings.tankEmpty && !tankEmptySent) {
     Serial.println("The water tank is empty, the plant cannot be watered.");
     if (sendAlert("The water tank is empty, the plant cannot be watered.")) {
       tankEmptySent = true;
     }
   }
 
-  if (pumpWorking) {
+  // The soil is wet enough again, so a new safety timeout alert can be sent later
+  if (readings.soilValid && readings.soil > settings.soilDry) {
+    pumpTimeoutSent = false;
+  }
 
-    // Checks every reason to stop the pump
-    if (r.tankEmpty) {
-      digitalWrite(relayPin, LOW); // Turns the relay off
-      pumpWorking = false;
-      Serial.println("Stopping the pump: the water tank is empty.");
-    } else if (!r.soilValid) {
-      digitalWrite(relayPin, LOW); // Turns the relay off
-      pumpWorking = false;
-      Serial.println("Stopping the pump: the soil humidity reading is not valid.");
-    } else if (r.soil > settings.soilWet) {
-      digitalWrite(relayPin, LOW); // Turns the relay off
-      pumpWorking = false;
-      Serial.println("Stopping the pump: the soil is wet enough.");
-    } else if (millis() - pumpStartTime >= settings.maxPumpSeconds * 1000UL) {
-      digitalWrite(relayPin, LOW); // Turns the relay off
-      pumpWorking = false;
-      Serial.println("Stopping the pump: the maximum run time was reached.");
-      pumpBlockedUntil = millis() + settings.pauseSeconds * 1000UL; // Leaves the water time to soak in
-      if (!pumpTimeoutSent) { // Sends the alert only once per safety stop
-        if (sendAlert("The pump was stopped by the safety timeout, please check the soil sensor and the tank.")) {
-          pumpTimeoutSent = true;
-        }
-      }
-    }
+  // A safety timeout stopped an automatic run, so an alert has to be sent
+  if (pumpTakeSafetyStopEvent()) {
+    pumpTimeoutPending = true;
+  }
 
-  } else {
-
-    digitalWrite(relayPin, LOW); // Keeps the relay off while the pump is not working
-
-    // Starts the pump only when the soil is dry, the tank has water and the pause is over
-    if (r.soilValid && r.soil < settings.soilDry && !r.tankEmpty && (long)(millis() - pumpBlockedUntil) >= 0) {
-      digitalWrite(relayPin, HIGH); // Turns the relay on
-      pumpWorking = true;
-      pumpStartTime = millis();
-      Serial.println("Watering the plant...");
+  // Keeps trying until the safety timeout alert is sent, then waits for the next event
+  if (pumpTimeoutPending && !pumpTimeoutSent) {
+    Serial.println("The pump was stopped by the safety timeout, please check the soil sensor and the tank.");
+    if (sendAlert("The pump was stopped by the safety timeout, please check the soil sensor and the tank.")) {
+      pumpTimeoutSent = true;
+      pumpTimeoutPending = false;
     }
   }
 }
@@ -286,12 +260,13 @@ void loop() {
     Serial.println("%");
   }
 
-  updatePump(readings); // Decides if the water pump must run or stop
+  pumpUpdate(readings); // Decides if the water pump must run or stop
+  checkPumpAlerts(); // Sends the empty tank and the safety timeout alerts
 
   // Stores one sample every historyIntervalMs, and also on the first control
   // cycle so the charts always have a starting point
   if (!historyStarted || millis() - lastHistoryTime >= historyIntervalMs) {
-    historyAdd(readings, pumpWorking);
+    historyAdd(readings, pumpStatus().running);
     lastHistoryTime = millis();
     historyStarted = true;
   }
@@ -397,7 +372,7 @@ void handleRoot() {
   }
 
   // Checks if the water pump is on
-  if (pumpWorking == false) {
+  if (pumpStatus().running == false) {
     waterpump += "Pump off"; // Concatenates the text into the waterpump variable
   } else {
     waterpump += "Watering the plant"; // Concatenates the text into the waterpump variable
