@@ -1,10 +1,11 @@
-// Web server and JSON API of the smart garden: serves the old readings page and
-// the routes under /api used by the dashboard. The JSON answers are built with
-// fixed char buffers and snprintf, so the heap stays free and no ArduinoJson is
-// needed. A JSON value that is not a usable number is printed as null.
+// Web server and JSON API of the smart garden: serves the dashboard page and the
+// routes under /api it uses. The JSON answers are built with fixed char buffers
+// and snprintf, so the heap stays free and no ArduinoJson is needed. A JSON value
+// that is not a usable number is printed as null.
 
 #include "web.h" // Includes the webBegin and webLoop declarations
 #include <Arduino.h> // Needed for String, Serial and millis
+#include "dashboard.h" // Needed for the dashboard page kept in flash
 #include <WiFi.h> // Needed for WiFi.RSSI and WiFi.localIP
 #include <WebServer.h> // Needed for the WebServer class
 #include <stdio.h> // Needed for snprintf
@@ -126,71 +127,10 @@ static bool parseLongStrict(const String& text, long* out) {
 
 // --------------------------------------------------------------- handlers ---
 
-// Serves the old readings page, kept until the dashboard replaces it
-static void handleLegacyPage() {
-
-  // Uses the last readings taken by readSensors(), no sensor is read here
-  String watertank = ""; // Initializes the watertank variable as an empty string
-  String waterpump = ""; // Initializes the waterpump variable as an empty string
-
-  // Checks if there is water in the tank
-  if (readings.tankEmpty) {
-    watertank += "Tank empty"; // Concatenates the text into the watertank variable
-  } else {
-    watertank += "Tank with water"; // Concatenates the text into the watertank variable
-  }
-
-  // Checks if the water pump is on
-  if (pumpStatus().running == false) {
-    waterpump += "Pump off"; // Concatenates the text into the waterpump variable
-  } else {
-    waterpump += "Watering the plant"; // Concatenates the text into the waterpump variable
-  }
-
-  // Shows "n/a" instead of a number when the DHT sensor did not answer
-  String temperatureText = readings.dhtValid ? String(readings.temperature) : "n/a";
-  String humidityText = readings.dhtValid ? String(readings.humidity) : "n/a";
-
-  // Web page code, built piece by piece so it is easier to read
-  String html = "<html lang='en'><head><meta charset='UTF-8'> <title>IoT Garden</title> <meta name='viewport' content='width=device-width, initial-scale=1'> <link rel='icon' href='https://icons.iconarchive.com/icons/toma4025/tea/128/tea-plant-leaf-icon.png'> <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'> <style> ";
-
-  // Page and sensor card styles
-  html += "body { font-family: Arial, sans-serif; background-color: #000000; text-align: center; padding-top: 50px; padding: 20px; background-image: url('https://ensina.rtp.pt/site-uploads/2021/05/movimento_xilemico_plantas_vasculares-854x480.jpg');background-repeat: no-repeat;background-size: cover; } h1 { color: white; font-size: 70px; } .sensor-name { font-size: 24px; font-weight: bold; margin-bottom: 18px; } .sensor-value { font-size: 36px; font-weight: bold; margin-bottom: 10px; } .sensor-reading { background-color: white; border: 1px solid #333; border-radius: 10px; padding: 14px 20px; box-shadow: 2px 2px 5px #ccc; display: flex; flex-direction: column; align-items: center; justify-content: space-around; text-align: center; margin: 10px; } ";
-
-  // Grid layout for the desktop, one area per card
-  html += ".grid { display: grid; grid-template-columns: 1fr 1fr 1fr ; grid-template-rows: 150px 150px; grid-template-areas: 'temperature humidity light' 'soilHumidity tank pump'; } ";
-
-  // Responsive layout, one card per row on small screens
-  html += "@media screen and (max-width: 890px) {.grid { display: grid; grid-template-columns: 1fr; grid-template-rows: 190px 190px 190px 190px 190px 190px ; grid-template-areas: 'temperature' 'humidity' 'light' 'soilHumidity' 'tank' 'pump'; padding-left:50px; padding-right:50px; }.sensor-name { margin-bottom: -50px; }h1 {font-size: 30px;}} ";
-
-  html += "</style></head><body> <h1>IoT Garden</h1> <div class='grid'> ";
-
-  // Temperature card
-  html += "<div class='sensor-reading' style='grid-area: temperature'> <div class='sensor-name'>Temperature:</div> <div class='sensor-value'>" + temperatureText + "ºC</div> </div> ";
-
-  // Air humidity card
-  html += "<div class='sensor-reading' style='grid-area: humidity'> <div class='sensor-name'>Humidity:</div> <div class='sensor-value'>" + humidityText + "%</div> </div> ";
-
-  // Light card
-  html += "<div class='sensor-reading' style='grid-area: light'> <div class='sensor-name'>Light:</div> <div class='sensor-value'>" + String(readings.light) + "%</div> </div> ";
-
-  // Soil humidity card
-  html += "<div class='sensor-reading' style='grid-area: soilHumidity'> <div class='sensor-name'>Soil humidity:</div> <div class='sensor-value'>" + String(readings.soil) + "%</div> </div> ";
-
-  // Water tank card
-  html += "<div class='sensor-reading' style='grid-area: tank'> <div class='sensor-name'>Water tank:</div> <div class='sensor-value'>" + String(watertank) + "</div> </div> ";
-
-  // Water pump card
-  html += "<div class='sensor-reading' style='grid-area: pump'> <div class='sensor-name'>Water pump:</div> <div class='sensor-value'>" + String(waterpump) + "</div> </div> ";
-
-  html += "</div></body></html>";
-
-
-  int refreshTime = 1; // Defines the time in seconds for the page refresh
-
-  // Sends the HTML page to the client with the automatic refresh instruction
-  server.sendHeader("Refresh", String(refreshTime));
-  server.send(200, "text/html", html);
+// Serves GET / with the dashboard page, kept in flash and sent in one piece
+static void handleDashboard() {
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send_P(200, "text/html", dashboardHtml);
 }
 
 // Serves GET /api/readings: all the current values in one fixed buffer
@@ -509,7 +449,7 @@ static void handleNotFound() {
 
 // Registers every route and starts the server
 void webBegin() {
-  server.on("/", HTTP_GET, handleLegacyPage); // Old page, kept until the dashboard exists
+  server.on("/", HTTP_GET, handleDashboard); // The single page dashboard
   server.on("/api/readings", HTTP_GET, handleReadings);
   server.on("/api/history", HTTP_GET, handleHistory);
   server.on("/api/settings", HTTP_GET, handleSettingsGet);
