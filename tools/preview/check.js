@@ -55,7 +55,7 @@ function checkDashboard() {
 
   if (!dashboard.exists) {
     skip('dashboard extracted', 'dashboard.h does not exist yet');
-    skip('dashboard size below 15000 bytes', 'dashboard.h does not exist yet');
+    skip('dashboard size below 30000 bytes', 'dashboard.h does not exist yet');
     skip('no second )rawliteral" terminator', 'dashboard.h does not exist yet');
     skip('page script blocks parse', 'dashboard.h does not exist yet');
     skip('element ids referenced by the script exist', 'dashboard.h does not exist yet');
@@ -65,7 +65,7 @@ function checkDashboard() {
 
   if (dashboard.html === null) {
     fail('dashboard extracted', 'R"rawliteral( ... )rawliteral" not found');
-    skip('dashboard size below 15000 bytes', 'no extracted dashboard');
+    skip('dashboard size below 30000 bytes', 'no extracted dashboard');
     skip('no second )rawliteral" terminator', 'no extracted dashboard');
     skip('page script blocks parse', 'no extracted dashboard');
     skip('element ids referenced by the script exist', 'no extracted dashboard');
@@ -77,10 +77,10 @@ function checkDashboard() {
   ok('dashboard extracted (' + html.length + ' bytes)');
 
   const byteLength = Buffer.byteLength(html, 'utf8');
-  if (byteLength < 15000) {
-    ok('dashboard size below 15000 bytes (' + byteLength + ')');
+  if (byteLength < 30000) {
+    ok('dashboard size below 30000 bytes (' + byteLength + ')');
   } else {
-    fail('dashboard size below 15000 bytes', byteLength + ' bytes');
+    fail('dashboard size below 30000 bytes', byteLength + ' bytes');
   }
 
   if (dashboard.terminatorCount === 1) {

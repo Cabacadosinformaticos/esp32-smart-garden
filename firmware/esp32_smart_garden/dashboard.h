@@ -14,10 +14,11 @@ const char dashboardHtml[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Smart Garden</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer onerror="window.__noChart=1"></script>
 <style>
 /* Theme: light, dark follows the system setting */
-:root{--bg:#f2f5f1;--cd:#fff;--tx:#14201a;--mu:#5d6f64;--ln:#e2e9e3;--tr:#e9efe9;--sh:0 1px 2px #0f1e140d,0 8px 22px #0f1e1410;--ok:#127a45;--wn:#a26200;--al:#c0342a;--ac:#1d8a4e}
-@media (prefers-color-scheme:dark){:root{--bg:#0a1410;--cd:#13211a;--tx:#e7f0ea;--mu:#93a89b;--ln:#213429;--tr:#1d3026;--sh:0 1px 2px #0008,0 8px 22px #0006;--ok:#4ad07f;--wn:#f0b13e;--al:#ff6f61;--ac:#4ad07f}}
+:root{--bg:#f2f5f1;--cd:#fff;--tx:#14201a;--mu:#5d6f64;--ln:#e2e9e3;--tr:#e9efe9;--sh:0 1px 2px #0f1e140d,0 8px 22px #0f1e1410;--ok:#127a45;--wn:#a26200;--al:#c0342a;--ac:#1d8a4e;--c1:#bf3f0d;--c2:#1c5fb8;--c3:#2b7a30;--c4:#a86a00}
+@media (prefers-color-scheme:dark){:root{--bg:#0a1410;--cd:#13211a;--tx:#e7f0ea;--mu:#93a89b;--ln:#213429;--tr:#1d3026;--sh:0 1px 2px #0008,0 8px 22px #0006;--ok:#4ad07f;--wn:#f0b13e;--al:#ff6f61;--ac:#4ad07f;--c1:#ff9b57;--c2:#6cb6ff;--c3:#5ddc8f;--c4:#f2c14e}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
 .w{max-width:1100px;margin:0 auto;padding:16px 14px 28px}
@@ -70,6 +71,16 @@ h1{margin:0;font-size:21px;font-weight:700}
 .rs{margin-top:12px;border-top:1px solid var(--ln);padding-top:10px}
 .rw{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0;color:var(--mu)}
 .rw b{color:var(--tx);font-weight:600;text-align:right;overflow-wrap:anywhere}
+/* Charts */
+.ch{margin:26px 0 12px;font-size:16px;font-weight:700}
+.cg{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:900px){.cg{grid-template-columns:1fr 1fr}}
+.cw{position:relative;height:230px}
+.cw canvas{display:block;width:100%!important;height:100%!important}
+.em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:1px dashed var(--ln);border-radius:12px;color:var(--mu);font-size:13px;background:var(--cd)}
+.em[hidden]{display:none}
+.nt{margin:0 0 12px;font-size:13px;color:var(--mu)}
+.nt[hidden]{display:none}
 /* Footer */
 .ft{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;margin-top:18px;padding:14px 4px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--mu)}
 .fi{display:inline-flex;align-items:center;gap:6px}
@@ -147,6 +158,27 @@ h1{margin:0;font-size:21px;font-weight:700}
 </article>
 
 </div>
+
+<section>
+<h2 class="ch">Last 3 hours</h2>
+<p class="nt" id="chartNote" hidden>Charts need internet access to load Chart.js. The rest of the dashboard works without it.</p>
+<div class="cg">
+<article class="c">
+<h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Temperature and humidity</h3>
+<div class="cw">
+<canvas id="chartTemp" role="img" aria-label="Temperature and air humidity over the last three hours"></canvas>
+<p class="em" id="tempEmpty">Collecting data</p>
+</div>
+</article>
+<article class="c">
+<h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s6.2 6.4 6.2 10.6a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.5 12 3.5z"/></svg>Soil moisture and light</h3>
+<div class="cw">
+<canvas id="chartSoil" role="img" aria-label="Soil moisture and light over the last three hours with the dry and wet limits"></canvas>
+<p class="em" id="soilEmpty">Collecting data</p>
+</div>
+</article>
+</div>
+</section>
 </main>
 <footer class="ft">
 <span id="uptime">--</span>
@@ -273,10 +305,122 @@ function poll(){
   lastR=r;tOk=Date.now();online(true);render(r,cfg);
  },function(){online(false);}).catch(function(){}).then(function(){setTimeout(poll,3000);});
 }
-function loadCfg(){
- fetchJson('/api/settings').then(function(s){cfg=s;if(lastR){render(lastR,cfg);}},function(){});
+/* Charts: the last three hours of history, drawn with Chart.js */
+var hist={interval_s:60,count:0},chT=null,chS=null,noteShown=false;
+function pad2(v){return v<10?'0'+v:String(v);}
+function rgba(c,a){var s=String(c||'').replace('#','');if(s.length==3){s=s.charAt(0)+s.charAt(0)+s.charAt(1)+s.charAt(1)+s.charAt(2)+s.charAt(2);}if(s.length!=6){return c;}var n=parseInt(s,16);return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
+function cssv(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function theme(){return {tx:cssv('--tx'),mu:cssv('--mu'),ln:cssv('--ln'),cd:cssv('--cd'),ok:cssv('--ok'),c1:cssv('--c1'),c2:cssv('--c2'),c3:cssv('--c3'),c4:cssv('--c4')};}
+function calm(){return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches);}
+function histLabels(){
+ var n=N(hist.count)?hist.count:0,iv=N(hist.interval_s)?hist.interval_s:60,now=Date.now(),out=[],i,d;
+ for(i=0;i<n;i++){d=new Date(now-(n-1-i)*iv*1000);out.push(pad2(d.getHours())+':'+pad2(d.getMinutes()));}
+ return out;
 }
-loadCfg();setInterval(loadCfg,30000);setInterval(agoText,1000);poll();
+function vals(a){var o=[],i;if(!Array.isArray(a)){return o;}for(i=0;i<a.length;i++){o.push(N(a[i])?a[i]:null);}return o;}
+function pumpVals(a){var o=[],i;if(!Array.isArray(a)){return o;}for(i=0;i<a.length;i++){o.push(a[i]?100:null);}return o;}
+function flat(v,n){var o=[],i;for(i=0;i<n;i++){o.push(v);}return o;}
+function axes(t,right,fixed){
+ var x={grid:{color:t.ln,drawTicks:false},border:{color:t.ln},ticks:{color:t.mu,maxTicksLimit:6,autoSkip:true,maxRotation:0,font:{size:11}}};
+ var y={position:'left',grid:{color:t.ln,drawTicks:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,font:{size:11}}};
+ var out={x:x,y:y};
+ if(fixed){y.min=0;y.max=100;}
+ if(right){out.y1={position:'right',grid:{drawOnChartArea:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,font:{size:11}}};}
+ return out;
+}
+function chartOptions(t,scales){
+ return {
+  responsive:true,maintainAspectRatio:false,animation:calm()?false:{duration:450},
+  interaction:{mode:'index',intersect:false},
+  plugins:{
+   legend:{position:'top',align:'start',labels:{color:t.mu,usePointStyle:true,pointStyle:'circle',boxWidth:8,boxHeight:8,padding:12,font:{size:11}}},
+   tooltip:{backgroundColor:t.cd,titleColor:t.mu,bodyColor:t.tx,borderColor:t.ln,borderWidth:1,padding:9,cornerRadius:9,usePointStyle:true,boxWidth:8,boxHeight:8,
+    callbacks:{label:function(c){
+     var d=c.dataset,v=c.parsed.y;
+     if(d.pump){return 'Pump '+(N(v)&&v>0?'running':'stopped');}
+     return d.label+': '+(N(v)?(M.round(v*10)/10)+(d.unit||''):'--');
+    }}}
+  },
+  scales:scales
+ };
+}
+function emptyState(on){el('tempEmpty').hidden=!on;el('soilEmpty').hidden=!on;}
+function chartNote(){
+ el('tempEmpty').hidden=true;el('soilEmpty').hidden=true;
+ if(noteShown){return;}
+ noteShown=true;el('chartNote').hidden=false;
+}
+function drawCharts(){
+ if(!chT||!chS){return;}
+ var L=histLabels(),n=L.length,dry=cfg&&N(cfg.soil_dry)?cfg.soil_dry:null,wet=cfg&&N(cfg.soil_wet)?cfg.soil_wet:null;
+ chT.data.labels=L;
+ chT.data.datasets[0].data=vals(hist.temperature);
+ chT.data.datasets[1].data=vals(hist.humidity);
+ chT.update('none');
+ var d=chS.data.datasets;
+ chS.data.labels=L;
+ d[0].data=vals(hist.soil);
+ d[1].data=vals(hist.light);
+ d[2].data=dry==null?[]:flat(dry,n);
+ d[3].data=wet==null?[]:flat(wet,n);
+ d[4].data=pumpVals(hist.pump);
+ chS.update('none');
+ emptyState(n===0);
+}
+function paint(c,t){
+ c.options.plugins.legend.labels.color=t.mu;
+ c.options.plugins.tooltip.backgroundColor=t.cd;
+ c.options.plugins.tooltip.titleColor=t.mu;
+ c.options.plugins.tooltip.bodyColor=t.tx;
+ c.options.plugins.tooltip.borderColor=t.ln;
+ var k,s;
+ for(k in c.options.scales){
+  if(!Object.prototype.hasOwnProperty.call(c.options.scales,k)){continue;}
+  s=c.options.scales[k];
+  if(s.ticks){s.ticks.color=t.mu;}
+  if(s.grid&&s.grid.color){s.grid.color=t.ln;}
+  if(s.border&&s.border.color){s.border.color=t.ln;}
+ }
+}
+function themeCharts(){
+ if(!chT||!chS){return;}
+ var t=theme(),d1=chT.data.datasets,d2=chS.data.datasets;
+ d1[0].borderColor=t.c1;d1[0].backgroundColor=t.c1;d1[0].pointHoverBackgroundColor=t.c1;
+ d1[1].borderColor=t.c2;d1[1].backgroundColor=rgba(t.c2,.12);d1[1].pointHoverBackgroundColor=t.c2;
+ d2[0].borderColor=t.c3;d2[0].backgroundColor=rgba(t.c3,.15);d2[0].pointHoverBackgroundColor=t.c3;
+ d2[1].borderColor=t.c4;d2[1].backgroundColor=t.c4;d2[1].pointHoverBackgroundColor=t.c4;
+ d2[2].borderColor=t.mu;d2[3].borderColor=t.mu;d2[4].backgroundColor=rgba(t.ok,.16);
+ paint(chT,t);paint(chS,t);
+ chT.update('none');chS.update('none');
+}
+function chartsInit(){
+ var t=theme();
+ chT=new Chart(el('chartTemp'),{type:'line',data:{labels:[],datasets:[
+  {label:'Temperature',unit:'°C',data:[],borderColor:t.c1,backgroundColor:t.c1,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c1,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},
+  {label:'Air humidity',unit:'%',data:[],borderColor:t.c2,backgroundColor:rgba(t.c2,.12),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c2,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y1',order:1}
+ ]},options:chartOptions(t,axes(t,true,false))});
+ chS=new Chart(el('chartSoil'),{type:'line',data:{labels:[],datasets:[
+  {label:'Soil moisture',unit:'%',data:[],borderColor:t.c3,backgroundColor:rgba(t.c3,.15),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c3,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y',order:1},
+  {label:'Light',unit:'%',data:[],borderColor:t.c4,backgroundColor:t.c4,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c4,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},
+  {label:'Dry limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},
+  {label:'Wet limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},
+  {label:'Pump running',type:'bar',pump:true,data:[],backgroundColor:rgba(t.ok,.16),borderColor:'transparent',borderWidth:0,barPercentage:1,categoryPercentage:1,yAxisID:'y',order:2}
+ ]},options:chartOptions(t,axes(t,false,true))});
+ drawCharts();
+}
+function pollHistory(){
+ fetchJson('/api/history').then(function(d){hist=d;drawCharts();},function(){}).catch(function(){}).then(function(){setTimeout(pollHistory,60000);});
+}
+function loadCfg(){
+ fetchJson('/api/settings').then(function(s){cfg=s;if(lastR){render(lastR,cfg);}drawCharts();},function(){});
+}
+loadCfg();setInterval(loadCfg,30000);setInterval(agoText,1000);poll();pollHistory();
+window.addEventListener('load',function(){
+ if(window.__noChart||typeof Chart==='undefined'){chartNote();return;}
+ try{chartsInit();}catch(e){chartNote();}
+});
+var mqd=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+if(mqd&&mqd.addEventListener){mqd.addEventListener('change',themeCharts);}
 </script>
 </body>
 </html>
