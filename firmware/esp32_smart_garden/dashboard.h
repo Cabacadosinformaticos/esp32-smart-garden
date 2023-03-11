@@ -71,6 +71,34 @@ h1{margin:0;font-size:21px;font-weight:700}
 .rs{margin-top:12px;border-top:1px solid var(--ln);padding-top:10px}
 .rw{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0;color:var(--mu)}
 .rw b{color:var(--tx);font-weight:600;text-align:right;overflow-wrap:anywhere}
+/* Pump card and controls */
+.pc{grid-column:1/-1}
+.pb{display:flex;flex-direction:column;gap:14px}
+.pctl{display:flex;flex-direction:column;gap:10px;min-width:0}
+.seg{position:relative;display:inline-flex;align-self:flex-start;padding:3px;border-radius:12px;background:var(--tr)}
+.seg .hl{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:9px;background:var(--cd);box-shadow:var(--sh);transition:transform .18s ease}
+.seg.man .hl{transform:translateX(100%)}
+.seg button{position:relative;z-index:1;flex:1 1 0;min-width:84px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--mu);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.seg button[aria-pressed=true]{color:var(--tx)}
+.seg button:disabled,.bt:disabled{cursor:not-allowed;opacity:.5}
+.prow{display:flex;flex-wrap:wrap;gap:8px}
+.note{margin:8px 0 0;font-size:14px;font-weight:600}
+.note[hidden]{display:none}
+/* Buttons */
+.bt{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 15px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
+.bt:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+.bt:active:not(:disabled){transform:translateY(1px)}
+.bt:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.bt.pr{background:var(--ac);border-color:var(--ac);color:var(--bg)}
+.bt.pr:hover:not(:disabled){color:var(--bg);filter:brightness(1.08)}
+.bt.dn{border-color:var(--al);color:var(--al)}
+.bt.dn:hover:not(:disabled){background:var(--al);border-color:var(--al);color:var(--bg)}
+@media (min-width:900px){.pc{grid-column:span 3}.pb{flex-direction:row;align-items:flex-start;gap:24px}.pst{flex:0 0 200px}.pctl{flex:1 1 auto}}
+/* Toast */
+.tst{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));z-index:60;max-width:min(92vw,420px);padding:11px 16px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);box-shadow:var(--sh);font-size:14px;font-weight:600;opacity:0;transform:translate(-50%,14px);pointer-events:none;transition:.25s}
+.tst.on{opacity:1;transform:translate(-50%,0)}
+.tst.ok{border-color:var(--ok);color:var(--ok)}
+.tst.al{border-color:var(--al);color:var(--al)}
 /* Charts */
 .ch{margin:26px 0 12px;font-size:16px;font-weight:700}
 .cg{display:grid;grid-template-columns:1fr;gap:14px}
@@ -150,11 +178,27 @@ h1{margin:0;font-size:21px;font-weight:700}
 <div class="br"><div class="fl" id="lightBar"></div></div>
 </article>
 
-<article class="c">
+<article class="c pc">
 <h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="9" width="14" height="10" rx="3"/><path d="M12 9V4M9 4h6"/></svg>Pump</h2>
+<div class="pb">
+<div class="pst">
 <div class="ps"><span class="pd" id="pumpDot"></span><span id="pumpTxt">Idle</span></div>
+<p class="note" id="pumpNote" hidden></p>
+<div class="br" id="pumpProg" hidden><div class="fl" id="pumpBar"></div></div>
 <div class="rs"><div class="rw"><span>Mode</span><b id="pumpMode">Auto</b></div><div class="rw"><span>Reason</span><b id="pumpReason">--</b></div></div>
-<div id="pumpControls"></div>
+</div>
+<div id="pumpControls" class="pctl">
+<div class="seg" id="modeSeg" role="group">
+<span class="hl" aria-hidden="true"></span>
+<button id="modeAuto" data-act="mode" data-mode="auto" aria-pressed="true">Auto</button>
+<button id="modeManual" data-act="mode" data-mode="manual" aria-pressed="false">Manual</button>
+</div>
+<p class="nt" id="pumpHint" hidden>Automatic watering is off. The pump only runs when you start it.</p>
+<p class="ct">Water now</p>
+<div class="prow" id="pumpPresets"></div>
+<button class="bt dn" id="pumpStop" data-act="stop" disabled>Stop</button>
+</div>
+</div>
 </article>
 
 </div>
@@ -187,10 +231,11 @@ h1{margin:0;font-size:21px;font-weight:700}
 <span id="mem">--</span>
 <span id="ago">Waiting for data</span>
 </footer>
+<div id="toast" class="tst" role="status" aria-live="polite"></div>
 </div>
 <script>
 'use strict';
-var M=Math,C=289.03,cfg=null,lastR=null,tOk=0;
+var M=Math,C=289.03,cfg=null,lastR=null,tOk=0,lastP=null,busy=false,off=false,pumpLen=0,tracking=false,maxBuilt=null,pollT=0,tT=0;
 function el(i){return document.getElementById(i);}
 function set(i,t){el(i).textContent=t;}
 function N(v){return typeof v=='number'&&!isNaN(v);}
@@ -203,9 +248,11 @@ function fetchJson(url,o){
  return fetch(url,o).then(function(r){if(!r.ok){throw Error('http '+r.status);}return r.json();}).then(function(d){clearTimeout(t);return d;},function(e){clearTimeout(t);throw e;});
 }
 function online(ok){
+ off=!ok;
  document.body.classList.toggle('off',!ok);
  el('pill').className='pl '+(ok?'live':'off');
  set('pillText',ok?'Live':'Offline');
+ updControls(lastP,lastR);
 }
 function agoText(){
  if(!tOk){set('ago','Waiting for data');return;}
@@ -278,13 +325,82 @@ function metric(p,v,mn,mx){
  el(p+'Val').style.color=st=='ok'?'':'var(--'+st+')';
 }
 function pump(p){
- var run=p.running,w=M.round(p.blocked_remaining_s||0),st='',ti='Idle';
+ if(!p){return;}
+ lastP=p;
+ var run=!!p.running,w=M.round(p.blocked_remaining_s||0),rem=M.round(p.manual_remaining_s||0),st='',ti='Idle';
  if(run){st='ok';ti='Running';}else if(w>0){st='wn';ti='Paused '+w+' s';}
  el('pumpDot').className='pd'+(run?' run':w>0?' wait':'');
  var e=el('pumpTxt');
  e.textContent=ti;e.style.color=st?'var(--'+st+')':'';
- set('pumpMode',p.mode=='manual'?'Manual':'Auto');
+ var man=p.mode=='manual';
+ set('pumpMode',man?'Manual':'Auto');
  set('pumpReason',p.reason?p.reason:'--');
+ el('modeSeg').className='seg'+(man?' man':'');
+ el('modeAuto').setAttribute('aria-pressed',man?'false':'true');
+ el('modeManual').setAttribute('aria-pressed',man?'true':'false');
+ el('pumpHint').hidden=!man;
+ var manual=run&&man&&rem>0,note='',nc='';
+ if(manual){if(!tracking){tracking=true;pumpLen=rem;}note='Watering, '+rem+' s left';nc='ok';}
+ else if(run){tracking=false;note='Watering (automatic)';nc='ok';}
+ else if(w>0){tracking=false;note='Paused, '+w+' s left';nc='wn';}
+ else{tracking=false;}
+ var ne=el('pumpNote');
+ ne.hidden=!note;ne.textContent=note;ne.style.color=nc?'var(--'+nc+')':'';
+ var pe=el('pumpProg');
+ if(manual){
+  var pc=M.max(0,M.min(100,((pumpLen-rem)/(pumpLen||1))*100));
+  el('pumpBar').style.width=pc+'%';pe.hidden=false;
+ }else{pe.hidden=true;el('pumpBar').style.width='0%';}
+ updControls(p,lastR);
+}
+function updControls(p,r){
+ p=p||lastP;
+ var empty=!!(r&&r.tank_empty),run=!!(p&&p.running),lock=busy||off;
+ var why=empty?'Tank is empty':off?'Dashboard offline':'';
+ el('modeAuto').disabled=busy;el('modeManual').disabled=busy;
+ var bs=el('pumpPresets').children,i,b,d;
+ for(i=0;i<bs.length;i++){b=bs[i];d=lock||empty;b.disabled=d;b.title=d?why:'';}
+ el('pumpStop').disabled=lock||!run;
+}
+function buildPresets(s){
+ if(!s||!N(s.max_pump_s)){return;}
+ var max=M.round(s.max_pump_s),all=[5,10,20,30],out=[],h='',i;
+ if(maxBuilt==max){return;}
+ maxBuilt=max;
+ for(i=0;i<all.length;i++){if(all[i]<=max){out.push(all[i]);}}
+ if(out.indexOf(max)<0){out.push(max);}
+ for(i=0;i<out.length;i++){h+='<button class="bt pr" data-act=run data-run='+out[i]+'>'+out[i]+' s</button>';}
+ el('pumpPresets').innerHTML=h;
+ updControls(lastP,lastR);
+}
+function toast(t,k){var e=el('toast');e.textContent=t;e.className='tst on'+(k?' '+k:'');clearTimeout(tT);tT=setTimeout(function(){e.className='tst'+(k?' '+k:'');},4000);}
+function done(b){busy=false;if(b&&b.dataset.lb!=null){b.textContent=b.dataset.lb;delete b.dataset.lb;}updControls(lastP,lastR);}
+function postPump(b,btn){
+ if(busy){return;}
+ busy=true;
+ if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}
+ updControls(lastP,lastR);
+ fetch('/api/pump',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
+ .then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});})
+ .then(function(r){
+  done(btn);
+  if(r.ok&&r.data&&typeof r.data.running=='boolean'){
+   pump(r.data);
+   if(r.data.running&&r.data.mode=='manual'){tracking=true;pumpLen=r.data.manual_remaining_s||pumpLen;}
+   toast(b.indexOf('mode=')==0?(b=='mode=manual'?'Manual mode':'Auto mode'):b.indexOf('run=')==0?('Watering for '+b.slice(4)+' s'):'Stopped','ok');
+   pollNow();
+  }else{toast(r.data&&r.data.error?r.data.error:'Action failed','al');}
+ },function(){done(btn);toast('Could not reach the garden','al');});
+}
+function pumpClick(e){
+ var t=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
+ if(!t||t.disabled||busy){return;}
+ var a=t.getAttribute('data-act'),b='';
+ if(a=='mode'){b='mode='+t.getAttribute('data-mode');}
+ else if(a=='run'){b='run='+t.getAttribute('data-run');}
+ else if(a=='stop'){b='stop=1';}
+ else{return;}
+ postPump(b,t);
 }
 function render(r,s){
  set('ipText',r.ip?r.ip:'--');
@@ -303,8 +419,9 @@ function render(r,s){
 function poll(){
  fetchJson('/api/readings').then(function(r){
   lastR=r;tOk=Date.now();online(true);render(r,cfg);
- },function(){online(false);}).catch(function(){}).then(function(){setTimeout(poll,3000);});
+ },function(){online(false);}).catch(function(){}).then(function(){clearTimeout(pollT);pollT=setTimeout(poll,3000);});
 }
+function pollNow(){clearTimeout(pollT);poll();}
 /* Charts: the last three hours of history, drawn with Chart.js */
 var hist={interval_s:60,count:0},chT=null,chS=null,noteShown=false;
 function pad2(v){return v<10?'0'+v:String(v);}
@@ -412,8 +529,10 @@ function pollHistory(){
  fetchJson('/api/history').then(function(d){hist=d;drawCharts();},function(){}).catch(function(){}).then(function(){setTimeout(pollHistory,60000);});
 }
 function loadCfg(){
- fetchJson('/api/settings').then(function(s){cfg=s;if(lastR){render(lastR,cfg);}drawCharts();},function(){});
+ fetchJson('/api/settings').then(function(s){cfg=s;buildPresets(s);if(lastR){render(lastR,cfg);}drawCharts();},function(){});
 }
+el('pumpControls').addEventListener('click',pumpClick);
+buildPresets({max_pump_s:30});
 loadCfg();setInterval(loadCfg,30000);setInterval(agoText,1000);poll();pollHistory();
 window.addEventListener('load',function(){
  if(window.__noChart||typeof Chart==='undefined'){chartNote();return;}
