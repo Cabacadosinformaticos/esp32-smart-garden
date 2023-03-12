@@ -190,19 +190,58 @@ function settingsJson(settings) {
 
 // ------------------------------------------------------------------ device ---
 
-// Environment generator: a slow day curve for the light and gentle sine drifts
-// for temperature and air humidity. The alert scenario pins its own values.
-function environmentFor(scenario, seconds) {
-  const dayPosition = ((seconds % 86400) + 86400) % 86400;
-  const light = clamp(50 + 50 * Math.sin((2 * Math.PI * dayPosition) / 86400 - Math.PI / 2), 0, 100);
+// Simulated wall clock for the preview day, in seconds since midnight. The
+// preview starts mid afternoon, so the default scenario is a bright garden and
+// the light stays high for the first screenshots.
+const SIM_START_SECONDS = 14 * 3600 + 30 * 60;
+
+// Sunrise and sunset for the light arc, in seconds since midnight
+const SUNRISE_SECONDS = 6 * 3600 + 30 * 60;
+const SUNSET_SECONDS = 21 * 3600;
+
+// Small mulberry32 pseudo random generator, so the noise is the same on every
+// run. Returns a number in [0, 1).
+function pseudoRandom(seed) {
+  let t = (seed + 0x6D2B79F5) | 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+// Light for one moment of the simulated day: a smooth arc between sunrise and
+// sunset, with a few short cloud dips that stay the same on every run.
+function lightFor(dayPosition) {
+  if (dayPosition < SUNRISE_SECONDS || dayPosition > SUNSET_SECONDS) {
+    return 0;
+  }
+  const arc = Math.sin((Math.PI * (dayPosition - SUNRISE_SECONDS)) /
+    (SUNSET_SECONDS - SUNRISE_SECONDS));
+  let light = 85 * arc;
+  const cloud = pseudoRandom(Math.floor(dayPosition / 60));
+  if (cloud > 0.97) {
+    light -= 8 + 250 * (cloud - 0.97);
+  }
+  return clamp(light, 0, 100);
+}
+
+// Environment generator: a slow day curve for the light and gentle drifts for
+// temperature and air humidity, driven by the simulated clock. The alert
+// scenario pins its own live values.
+function environmentFor(scenario, simSeconds) {
+  const dayPosition = ((simSeconds % 86400) + 86400) % 86400;
+  const light = lightFor(dayPosition);
 
   if (scenario === 'alert') {
     return { temperature: 29, humidity: 41, light };
   }
 
+  // Slow daily drift: temperature climbs from 23.0 to 24.4 across the three
+  // hours before 14:30, air humidity moves the other way.
+  const drift = Math.sin((2 * Math.PI * (dayPosition - 46800)) / 86400);
+  const seed = Math.floor(simSeconds / 60);
   return {
-    temperature: 23 + 1.0 * Math.sin((2 * Math.PI * seconds) / 3600),
-    humidity: 58 + 2.0 * Math.sin((2 * Math.PI * seconds) / 2400),
+    temperature: 23.7 + 1.8 * drift + 0.2 * (pseudoRandom(seed) - 0.5),
+    humidity: 59 - 7.84 * drift + 0.4 * (pseudoRandom(seed + 7919) - 0.5),
     light
   };
 }
@@ -362,7 +401,7 @@ function createMockServer(options = {}) {
 
   // One control cycle per second, like the sketch main loop
   function tick() {
-    const env = environmentFor(scenario, state.uptimeSeconds());
+    const env = environmentFor(scenario, SIM_START_SECONDS + state.uptimeSeconds());
     readings.temperature = env.temperature;
     readings.humidity = env.humidity;
     readings.light = env.light;
@@ -393,20 +432,95 @@ function createMockServer(options = {}) {
     }
   }
 
-  // Fills the ring with a plausible past of the last three hours
-  function prefillHistory() {
-    const baseSoil = readings.soil;
+  // Soil saw tooth for the normal history: the soil dries by about 0.12 to
+  // 0.20 each sample, the pump runs for three samples and refills it, then it
+  // dries again. The last sample lands on the value the live readings start
+  // from, so the live soil continues the same curve.
+  function soilSawTooth() {
+    const dryMean = 0.16;
+    const pumpRise = 12;
+    const pumpSamples = 3;
+    const trough = 31; // Pump starts just below the default soil_dry of 30
+    const lastValue = 52;
+
+    const steps = [];
     for (let i = 0; i < HISTORY_CAPACITY; i++) {
-      const offset = (i - (HISTORY_CAPACITY - 1)) * HISTORY_INTERVAL_S;
-      const env = environmentFor(scenario, state.uptimeSeconds() + offset);
+      steps.push(dryMean + 0.08 * (pseudoRandom(1000 + i) - 0.5));
+    }
+
+    function simulate(start) {
+      const values = [];
+      const flags = [];
+      let soil = start;
+      let pumpLeft = 0;
+      for (let i = 0; i < HISTORY_CAPACITY; i++) {
+        if (pumpLeft > 0) {
+          soil += pumpRise;
+          flags.push(1);
+          pumpLeft--;
+        } else {
+          soil -= steps[i];
+          flags.push(0);
+          if (soil < trough) {
+            pumpLeft = pumpSamples;
+          }
+        }
+        values.push(soil);
+      }
+      return { values, flags };
+    }
+
+    // Two passes: the first learns the total drying, the second starts high
+    // enough that the last sample is lastValue.
+    let run = simulate(50);
+    run = simulate(50 + (lastValue - run.values[HISTORY_CAPACITY - 1]));
+    return run;
+  }
+
+  // Soil for the alert history: no pump because the tank is empty, the soil
+  // just dries from a healthy value down to the alert reading.
+  function soilAlert() {
+    const values = [];
+    const flags = [];
+    for (let i = 0; i < HISTORY_CAPACITY; i++) {
+      const progress = i / (HISTORY_CAPACITY - 1);
+      values.push(45 - 23 * progress + 0.2 * (pseudoRandom(4000 + i) - 0.5));
+      flags.push(0);
+    }
+    return { values, flags };
+  }
+
+  // Fills the ring with a plausible past of the last three hours. It always
+  // starts from the fixed preview clock, so every run draws the same picture.
+  function prefillHistory() {
+    const soilRun = scenario === 'alert' ? soilAlert() : soilSawTooth();
+
+    for (let i = 0; i < HISTORY_CAPACITY; i++) {
+      const simSeconds = SIM_START_SECONDS +
+        (i - (HISTORY_CAPACITY - 1)) * HISTORY_INTERVAL_S;
+      const env = environmentFor(scenario, simSeconds);
+      const progress = i / (HISTORY_CAPACITY - 1);
+
+      let temperature = env.temperature;
+      let humidity = env.humidity;
+      if (scenario === 'alert') {
+        // Temperature climbs to the alert value near the end of the window
+        temperature = 26.5 + 2.5 * progress * progress +
+          0.2 * (pseudoRandom(2000 + i) - 0.5);
+        humidity = 44 - 3 * progress + 0.4 * (pseudoRandom(3000 + i) - 0.5);
+      }
+
       history.push({
-        temperature: env.temperature,
-        humidity: env.humidity,
-        soil: clamp(baseSoil + (HISTORY_CAPACITY - 1 - i) * 0.1, 0, 100),
+        temperature,
+        humidity,
+        soil: soilRun.values[i],
         light: Math.round(env.light),
-        pump: 0
+        pump: soilRun.flags[i]
       });
     }
+
+    // The live readings continue smoothly from the last history sample
+    readings.soil = soilRun.values[HISTORY_CAPACITY - 1];
   }
 
   // ----------------------------------------------------------- http layer ---
