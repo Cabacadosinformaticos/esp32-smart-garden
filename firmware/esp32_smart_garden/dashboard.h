@@ -109,6 +109,38 @@ h1{margin:0;font-size:21px;font-weight:700}
 .em[hidden]{display:none}
 .nt{margin:0 0 12px;font-size:13px;color:var(--mu)}
 .nt[hidden]{display:none}
+/* Settings */
+.cfg{margin:26px 0 0;background:var(--cd);border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);overflow:hidden}
+.cfgh{display:flex;align-items:center;cursor:pointer;list-style:none;padding:15px 16px}
+.cfgh::-webkit-details-marker{display:none}
+.cfgh:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.cfgh .ct{margin:0}
+.chv{margin-left:auto;transition:transform .2s ease}
+.cfg[open] .chv{transform:rotate(180deg)}
+.cfgb{padding:0 16px 16px}
+.fgr{display:grid;grid-template-columns:1fr;gap:14px}
+@media (min-width:900px){.fgr{grid-template-columns:1fr 1fr 1fr;gap:18px}}
+.grp{margin:0;padding:12px 14px 14px;border:1px solid var(--ln);border-radius:14px;min-width:0}
+.gh{padding:0 6px;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}
+.fld{position:relative;margin:12px 0 0}
+.fld[data-u]::after{content:attr(data-u);position:absolute;right:12px;bottom:0;height:44px;line-height:44px;font-size:13px;font-weight:600;color:var(--mu);pointer-events:none}
+.lb{display:block;margin:0 0 5px;font-size:13px;font-weight:600}
+.in{display:block;width:100%;height:44px;padding:0 42px 0 12px;border:1px solid var(--ln);border-radius:11px;background:var(--bg);color:var(--tx);font:inherit;font-size:15px;font-weight:600}
+.in:focus{outline:2px solid var(--ac);outline-offset:1px}
+.in::-webkit-outer-spin-button,.in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.in[type=number]{-moz-appearance:textfield}
+.sw{position:relative;display:inline-flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-weight:600;color:var(--mu)}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sl{position:relative;flex:0 0 auto;width:46px;height:26px;border:1px solid var(--ln);border-radius:99px;background:var(--tr);transition:.18s}
+.sl::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--cd);transition:transform .18s ease}
+.sw input:checked+.sl{background:var(--ac);border-color:var(--ac)}
+.sw input:checked+.sl::after{transform:translateX(20px)}
+.sw input:focus-visible+.sl{outline:2px solid var(--ac);outline-offset:2px}
+.hlp{margin:8px 0 0;font-size:12.5px;color:var(--mu)}
+.aerr{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--al)}
+[hidden]{display:none}
+.sft{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px}
+.dh{font-size:12.5px;font-weight:600;color:var(--wn)}
 /* Footer */
 .ft{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;margin-top:18px;padding:14px 4px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--mu)}
 .fi{display:inline-flex;align-items:center;gap:6px}
@@ -223,6 +255,80 @@ h1{margin:0;font-size:21px;font-weight:700}
 </article>
 </div>
 </section>
+
+<details class="cfg" id="setPanel">
+<summary class="cfgh">
+<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg>Settings<svg class="chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></h2>
+</summary>
+<form class="cfgb" id="setForm" novalidate>
+<div class="fgr">
+
+<fieldset class="grp">
+<legend class="gh">Watering</legend>
+<div class="fld" data-u="%">
+<label class="lb" for="sSoilDry">Soil dry limit</label>
+<input class="in" id="sSoilDry" name="soil_dry" type="number" inputmode="decimal" min="0" max="100" step="1">
+</div>
+<div class="fld" data-u="%">
+<label class="lb" for="sSoilWet">Soil wet limit</label>
+<input class="in" id="sSoilWet" name="soil_wet" type="number" inputmode="decimal" min="0" max="100" step="1">
+</div>
+<div class="fld" data-u="s">
+<label class="lb" for="sMaxPump">Maximum pump run</label>
+<input class="in" id="sMaxPump" name="max_pump_s" type="number" inputmode="numeric" min="5" max="120" step="1">
+</div>
+<div class="fld" data-u="s">
+<label class="lb" for="sPause">Pause after a safety stop</label>
+<input class="in" id="sPause" name="pause_s" type="number" inputmode="numeric" min="10" max="600" step="1">
+</div>
+<p class="aerr" id="errWater" hidden></p>
+<p class="hlp">The pump starts when the soil falls below the dry limit and stops above the wet limit.</p>
+</fieldset>
+
+<fieldset class="grp">
+<legend class="gh">Alerts</legend>
+<div class="fld" data-u="&deg;C">
+<label class="lb" for="sTempMin">Temperature minimum</label>
+<input class="in" id="sTempMin" name="temp_min" type="number" inputmode="decimal" min="-10" max="60" step="1">
+</div>
+<div class="fld" data-u="&deg;C">
+<label class="lb" for="sTempMax">Temperature maximum</label>
+<input class="in" id="sTempMax" name="temp_max" type="number" inputmode="decimal" min="-10" max="60" step="1">
+</div>
+<div class="fld" data-u="%">
+<label class="lb" for="sHumMin">Air humidity minimum</label>
+<input class="in" id="sHumMin" name="hum_min" type="number" inputmode="decimal" min="0" max="100" step="1">
+</div>
+<div class="fld" data-u="%">
+<label class="lb" for="sHumMax">Air humidity maximum</label>
+<input class="in" id="sHumMax" name="hum_max" type="number" inputmode="decimal" min="0" max="100" step="1">
+</div>
+<p class="aerr" id="errAlerts" hidden></p>
+<p class="hlp">The dashboard warns when the temperature or the air humidity leaves this range.</p>
+</fieldset>
+
+<fieldset class="grp">
+<legend class="gh">Daily summary</legend>
+<div class="fld">
+<label class="lb" for="sDaily">Send a daily summary</label>
+<label class="sw"><input type="checkbox" id="sDaily" name="daily_summary"><span class="sl" aria-hidden="true"></span></label>
+</div>
+<div class="fld">
+<label class="lb" for="sHour">Hour of the day</label>
+<select class="in" id="sHour" name="summary_hour"></select>
+</div>
+<p class="hlp">Sends one WhatsApp message per day with the main numbers.</p>
+</fieldset>
+
+</div>
+<p class="aerr" id="setErr" hidden></p>
+<div class="sft">
+<button type="submit" class="bt pr" id="setSave">Save</button>
+<button type="button" class="bt dn" id="setReset">Reset to defaults</button>
+<span class="dh" id="setDirty" hidden>Unsaved changes</span>
+</div>
+</form>
+</details>
 </main>
 <footer class="ft">
 <span id="uptime">--</span>
@@ -529,8 +635,100 @@ function pollHistory(){
  fetchJson('/api/history').then(function(d){hist=d;drawCharts();},function(){}).catch(function(){}).then(function(){setTimeout(pollHistory,60000);});
 }
 function loadCfg(){
- fetchJson('/api/settings').then(function(s){cfg=s;buildPresets(s);if(lastR){render(lastR,cfg);}drawCharts();},function(){});
+ fetchJson('/api/settings').then(function(s){cfg=s;buildPresets(s);sSync();if(lastR){render(lastR,cfg);}drawCharts();},function(){});
 }
+/* Settings panel: fill, validate and post the thresholds. */
+var SF=[['sSoilDry','soil_dry'],['sSoilWet','soil_wet'],['sMaxPump','max_pump_s'],['sPause','pause_s'],['sTempMin','temp_min'],['sTempMax','temp_max'],['sHumMin','hum_min'],['sHumMax','hum_max'],['sDaily','daily_summary'],['sHour','summary_hour']];
+var sInit=false,sBusy=false,sNo='Could not reach the garden.',hi,ho='';
+for(hi=0;hi<24;hi++){ho+='<option value="'+hi+'">'+pad2(hi)+':00</option>';}
+el('sHour').innerHTML=ho;
+function sNum(id){return parseFloat(el(id).value);}
+function sBad(v,mn,mx){return !isFinite(v)||v<mn||v>mx;}
+function sEdits(){var i;for(i=0;i<SF.length;i++){if(el(SF[i][0]).dataset.ed){return true;}}return false;}
+function sCheck(){
+ var ok=true,we='',ae='';
+ var dr=sNum('sSoilDry'),wt=sNum('sSoilWet'),pm=sNum('sMaxPump'),ps=sNum('sPause');
+ var tm=sNum('sTempMin'),tx=sNum('sTempMax'),hm=sNum('sHumMin'),hx=sNum('sHumMax');
+ if(sBad(dr,0,100)||sBad(wt,0,100)){we='Soil limits must be 0 to 100.';ok=false;}
+ else if(dr+5>wt){we='The dry limit must be 5 below the wet limit.';ok=false;}
+ else if(sBad(pm,5,120)){we='Maximum pump run must be 5 to 120 seconds.';ok=false;}
+ else if(sBad(ps,10,600)){we='Pause must be 10 to 600 seconds.';ok=false;}
+ if(sBad(tm,-10,60)||sBad(tx,-10,60)){ae='Temperature limits must be -10 to 60 C.';ok=false;}
+ else if(tm+2>tx){ae='The minimum must be 2 below the maximum.';ok=false;}
+ else if(sBad(hm,0,100)||sBad(hx,0,100)){ae='Humidity limits must be 0 to 100.';ok=false;}
+ else if(hm+5>hx){ae='The minimum must be 5 below the maximum.';ok=false;}
+ return {ok:ok,we:we,ae:ae};
+}
+function sShow(){
+ var v=sCheck(),show=sEdits(),e=el('errWater');
+ e.textContent=v.we;e.hidden=!v.we||!show;
+ e=el('errAlerts');e.textContent=v.ae;e.hidden=!v.ae||!show;
+ return v.ok;
+}
+function sMsg(t){var e=el('setErr');e.textContent=t;e.hidden=!t;}
+function sUpd(){el('setSave').disabled=sBusy||!sShow();el('setReset').disabled=sBusy;el('setDirty').hidden=!sEdits();}
+function sFill(force){
+ if(!cfg){return;}
+ var i,id,k,e,v;
+ for(i=0;i<SF.length;i++){
+  id=SF[i][0];k=SF[i][1];e=el(id);
+  if(!force&&e.dataset.ed){continue;}
+  delete e.dataset.ed;
+  v=cfg[k];
+  if(e.type=='checkbox'){e.checked=!!v;}else{e.value=N(v)?String(v):'';}
+ }
+ sUpd();
+}
+function sSync(){if(!el('setPanel').open){return;}sFill(!sInit);sUpd();if(cfg){sInit=true;}}
+function sEdit(ev){
+ var e=ev.target,i;
+ if(!e||!e.id){return;}
+ for(i=0;i<SF.length;i++){if(SF[i][0]==e.id){e.dataset.ed='1';sUpd();return;}}
+}
+function sBody(){
+ var p=new URLSearchParams(),i,e;
+ for(i=0;i<SF.length;i++){e=el(SF[i][0]);p.append(SF[i][1],e.type=='checkbox'?(e.checked?'1':'0'):e.value);}
+ return p;
+}
+function sPost(body,btn,okMsg){
+ if(sBusy){return;}
+ sBusy=true;sMsg('');sUpd();
+ if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}
+ fetch('/api/settings',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()})
+ .then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});})
+ .then(function(r){
+  sBusy=false;
+  if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}
+  if(r.ok&&r.data&&N(r.data.soil_dry)){
+   cfg=r.data;buildPresets(cfg);sInit=true;sFill(true);
+   if(lastR){render(lastR,cfg);}
+   drawCharts();
+   toast(okMsg,'ok');
+  }else{
+   var m=r.data&&r.data.error?r.data.error:'Could not save the settings.';
+   sMsg(m);toast(m,'al');
+  }
+  sUpd();
+ },function(){
+  sBusy=false;
+  if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}
+  sMsg(sNo);toast(sNo,'al');
+  sUpd();
+ });
+}
+el('setPanel').addEventListener('toggle',sSync);
+el('setForm').addEventListener('input',sEdit);
+el('setForm').addEventListener('submit',function(ev){
+ ev.preventDefault();
+ if(sBusy||!sShow()){return;}
+ sMsg('');
+ sPost(sBody(),el('setSave'),'Settings saved');
+});
+el('setReset').addEventListener('click',function(){
+ if(sBusy||!confirm('Restore the default settings?')){return;}
+ sMsg('');
+ sPost(new URLSearchParams({reset:'1'}),el('setReset'),'Settings restored');
+});
 el('pumpControls').addEventListener('click',pumpClick);
 buildPresets({max_pump_s:30});
 loadCfg();setInterval(loadCfg,30000);setInterval(agoText,1000);poll();pollHistory();
