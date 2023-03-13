@@ -10,6 +10,7 @@
 #include "settings.h" // Includes the runtime thresholds loaded from flash
 #include "pump.h" // Includes the pump state machine, the only code that writes the relay
 #include "web.h" // Includes the web server and the JSON API of the dashboard
+#include "services.h" // Includes mDNS, the over the air updates and the NTP clock
 
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
@@ -86,6 +87,10 @@ void setup() {
   // Connects to the Wi-Fi network, setup continues even if it fails
   connectWiFi();
   lastWifiAttempt = millis();
+
+  // Prepares mDNS, the over the air updates and the NTP clock. They really start
+  // in loop() once the Wi-Fi is connected, because the board may boot offline.
+  servicesBegin();
 
   // Starts the web server and registers every route
   webBegin();
@@ -218,6 +223,7 @@ void loop() {
   }
 
   webLoop(); // Handles any client that is communicating with the server at that moment
+  servicesLoop(); // Keeps mDNS, the over the air updates and the NTP clock running
 
   // The readings and the control cycle run only once per readInterval.
   // loop() keeps running without delay(), so the web server stays responsive.

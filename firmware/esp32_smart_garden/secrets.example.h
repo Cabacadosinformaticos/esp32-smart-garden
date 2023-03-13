@@ -13,4 +13,7 @@
 // Obtained from the CallMeBot WhatsApp bot, see README.
 #define CALLMEBOT_API_KEY "YOUR_CALLMEBOT_API_KEY"
 
+// Password asked by the Arduino IDE when uploading over the air (ArduinoOTA).
+#define OTA_PASSWORD "CHANGE_ME_OTA_PASSWORD"
+
 #endif

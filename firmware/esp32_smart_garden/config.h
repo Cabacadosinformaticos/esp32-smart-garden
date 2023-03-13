@@ -50,4 +50,8 @@ const unsigned long alertRetryInterval = 30000; // Time in ms to wait after a fa
 const uint16_t historyCapacity = 180; // Number of samples kept in RAM (3 hours at one sample per minute)
 const unsigned long historyIntervalMs = HISTORY_INTERVAL_MS; // Time in ms between two history samples
 
+// Network identity and time
+const char* const deviceHostname = "smart-garden"; // mDNS name, the dashboard answers at http://smart-garden.local
+const char* const timezoneRule = "WET0WEST,M3.5.0/1,M10.5.0/2"; // Lisbon time with daylight saving (POSIX TZ rule)
+
 #endif
