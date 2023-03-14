@@ -6,6 +6,24 @@
 
 #include <stdint.h> // Needed for the fixed width integer types used below
 
+// Build target
+// Build with -DWOKWI_SIMULATION for the Wokwi online simulator. Wokwi has no DHT11, so the
+// simulator build uses a DHT22 (same wiring, same library), joins the open network Wokwi-GUEST
+// with an empty password, does not send WhatsApp messages and fills the history faster.
+// Without the flag nothing changes for the real board.
+#ifdef WOKWI_SIMULATION
+#define DHTTYPE DHT22 // DHT22, the DHT11 model does not exist in the simulator
+#define NET_SSID "Wokwi-GUEST" // Open network provided by the simulator
+#define NET_PASSWORD "" // The simulator network has no password
+#define ALERTS_ENABLED 0 // No WhatsApp message is sent in the simulator
+#define HISTORY_INTERVAL_MS 5000UL // Faster samples so the charts have data quickly
+#else
+#define DHTTYPE DHT11 // DHT11 on the real board
+#define NET_SSID WIFI_SSID // Wi-Fi name from secrets.h
+#define NET_PASSWORD WIFI_PASSWORD // Wi-Fi password from secrets.h
+#define ALERTS_ENABLED 1 // WhatsApp alerts are sent
+#endif
+
 // Pins (ESP32 GPIO numbers)
 const int dhtSensorPin = 18; // GPIO18: DHT11 data pin (temperature and air humidity)
 const int relayPin = 19; // GPIO19: relay input that switches the water pump

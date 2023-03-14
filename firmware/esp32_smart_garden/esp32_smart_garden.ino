@@ -4,6 +4,7 @@
 // plant with a relay and a pump, sends WhatsApp alerts through CallMeBot and serves a web
 // page with the last readings.
 // The Wi-Fi and CallMeBot settings live in secrets.h (copy secrets.example.h).
+// Build with -DWOKWI_SIMULATION for the Wokwi simulator, see the README.
 
 #include "readings.h" // Includes the Readings struct that groups the last sensor readings
 #include "history.h" // Includes the in-RAM history ring buffer used by the charts
@@ -40,12 +41,11 @@ Readings readings = {0, false, NAN, NAN, false, 0, false}; // Soil percent, soil
 #include <DHT.h> // Includes the DHT library in the program to allow the use of the humidity and temperature sensor
 #include "secrets.h" // Includes the Wi-Fi, phone number and API key defined in the secrets.h file
 #include "config.h" // Includes the pins, calibration, threshold and timing constants defined in the config.h file
-#define DHTTYPE DHT11 // Defines the type of DHT sensor being used (DHT11 in this case)
-DHT dht(dhtSensorPin, DHTTYPE); // Creates a DHT library instance with the DHT sensor pin and the type defined above
+DHT dht(dhtSensorPin, DHTTYPE); // Creates a DHT library instance with the DHT sensor pin and the type from config.h
 
 
-const char* ssid = WIFI_SSID; // Defines the name of the Wi-Fi network (SSID) the device will connect to
-const char* password = WIFI_PASSWORD; // Defines the password of the Wi-Fi network the device will connect to
+const char* ssid = NET_SSID; // Defines the name of the Wi-Fi network (SSID) the device will connect to
+const char* password = NET_PASSWORD; // Defines the password of the Wi-Fi network the device will connect to
 
 // +international_country_code + phone number
 // Portugal +351, example: +351912345678
@@ -108,6 +108,14 @@ void setup() {
 // Function that sends a text message to the specified phone number
 // Returns true only when the server answers with HTTP 200
 bool sendMessage(String message){
+
+  // In the simulator there is no real WhatsApp account, so the message is only printed
+  // and the caller behaves as if the send worked
+  if (!ALERTS_ENABLED) {
+    Serial.print("Alert (not sent in the simulator): ");
+    Serial.println(message);
+    return true;
+  }
 
   // The message can only be sent when the Wi-Fi connection is up
   if (WiFi.status() != WL_CONNECTED) {
