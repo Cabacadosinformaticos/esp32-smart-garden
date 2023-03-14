@@ -41,6 +41,7 @@ const unsigned long wifiConnectTimeout = 15000; // Time in ms that setup() waits
 const unsigned long wifiRetryInterval = 10000; // Time in ms between reconnection attempts in loop()
 const unsigned long readInterval = 1000; // Time in ms between sensor readings and control cycles
 const unsigned long alertRetryInterval = 30000; // Time in ms to wait after a failed send before trying again
+const unsigned long alertMinSpacing = 5000; // Time in ms between two send attempts, so two TLS handshakes never overlap
 
 // History buffer
 // A build flag can shorten the interval so the simulator fills the buffer faster.

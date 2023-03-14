@@ -11,6 +11,8 @@
 #include "pump.h" // Includes the pump state machine, the only code that writes the relay
 #include "web.h" // Includes the web server and the JSON API of the dashboard
 #include "services.h" // Includes mDNS, the over the air updates and the NTP clock
+#include "summary.h" // Includes the daily statistics and the daily WhatsApp summary
+#include "alerts.h" // Includes the declaration of sendAlert(), shared with the other tabs
 
 // Global state flags and timers used by loop()
 bool notWorkSent = false; // true after the soil sensor alert was sent, so it is sent only once
@@ -25,6 +27,7 @@ bool dhtErrorSent = false; // true after the DHT error alert was sent, so it is 
 unsigned long lastWifiAttempt = 0; // Time of the last Wi-Fi connection attempt, used to retry in loop()
 unsigned long lastReadTime = 0; // Time of the last sensor reading and control cycle, used to time loop()
 unsigned long nextAlertTime = 0; // Time before which no alert is attempted again, set after a failed send
+unsigned long lastAlertAttempt = 0; // Time of the last send attempt, used to keep two sends apart
 unsigned long lastHistoryTime = 0; // Time of the last sample stored in the history buffer
 bool historyStarted = false; // False until the first sample is stored, so the charts start with a point
 
@@ -145,6 +148,13 @@ bool sendAlert(String message) {
     return false;
   }
 
+  // Two sends never start close together: every HTTPS call needs a TLS handshake that takes
+  // time and a lot of heap, so a second alert waits for the next control cycle
+  if (lastAlertAttempt != 0 && millis() - lastAlertAttempt < alertMinSpacing) {
+    return false;
+  }
+  lastAlertAttempt = millis();
+
   bool sent = sendMessage(message);
   if (!sent) {
     nextAlertTime = millis() + alertRetryInterval;
@@ -224,6 +234,7 @@ void loop() {
 
   webLoop(); // Handles any client that is communicating with the server at that moment
   servicesLoop(); // Keeps mDNS, the over the air updates and the NTP clock running
+  summaryLoop(); // Sends the daily WhatsApp summary when it is due, cheap when it is not
 
   // The readings and the control cycle run only once per readInterval.
   // loop() keeps running without delay(), so the web server stays responsive.
@@ -261,6 +272,7 @@ void loop() {
   }
 
   pumpUpdate(readings); // Decides if the water pump must run or stop
+  summaryRecord(readings, pumpStatus().running); // Adds this control cycle to the daily statistics
   checkPumpAlerts(); // Sends the empty tank and the safety timeout alerts
 
   // Stores one sample every historyIntervalMs, and also on the first control
