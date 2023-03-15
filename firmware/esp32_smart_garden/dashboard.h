@@ -10,335 +10,15 @@
 const char dashboardHtml[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark">
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=color-scheme content="light dark">
+<meta name=theme-color content=#f2f5f1 media=(prefers-color-scheme:light)>
+<meta name=theme-color content=#0a1410 media=(prefers-color-scheme:dark)>
+<link rel=icon href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M4 28C4 14 14 4 28 4c0 14-10 24-24 24z' fill='%231d8a4e'/></svg>">
 <title>Smart Garden</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer onerror="window.__noChart=1"></script>
-<style>
-/* Theme: light, dark follows the system setting */
-:root{--bg:#f2f5f1;--cd:#fff;--tx:#14201a;--mu:#5d6f64;--ln:#e2e9e3;--tr:#e9efe9;--sh:0 1px 2px #0f1e140d,0 8px 22px #0f1e1410;--ok:#127a45;--wn:#a26200;--al:#c0342a;--ac:#1d8a4e;--c1:#bf3f0d;--c2:#1c5fb8;--c3:#2b7a30;--c4:#a86a00}
-@media (prefers-color-scheme:dark){:root{--bg:#0a1410;--cd:#13211a;--tx:#e7f0ea;--mu:#93a89b;--ln:#213429;--tr:#1d3026;--sh:0 1px 2px #0008,0 8px 22px #0006;--ok:#4ad07f;--wn:#f0b13e;--al:#ff6f61;--ac:#4ad07f;--c1:#ff9b57;--c2:#6cb6ff;--c3:#5ddc8f;--c4:#f2c14e}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
-.w{max-width:1100px;margin:0 auto;padding:16px 14px 28px}
-/* Header */
-.hd{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-.ct svg,.lg{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.lg{width:34px;height:34px;color:var(--ac)}
-h1{margin:0;font-size:21px;font-weight:700}
-.sb{margin:1px 0 0;font-size:13px;color:var(--mu)}
-.pl{margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border:1px solid var(--ln);border-radius:999px;background:var(--cd);font-size:13px;font-weight:600;color:var(--mu)}
-.pl i{width:8px;height:8px;border-radius:50%;background:currentColor}
-.pl.live{color:var(--ok);border-color:var(--ok)}
-.pl.live i{animation:p 1.8s ease-out infinite}
-.pl.off{color:var(--al);border-color:var(--al)}
-@keyframes p{0%{box-shadow:0 0 0 0 var(--ok)}to{box-shadow:0 0 0 8px #0000}}
-/* Status banner */
-.bn{--bc:var(--mu);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;background:var(--cd);border:1px solid var(--ln);border-left:4px solid var(--bc);border-radius:16px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--sh)}
-.bn h2{margin:0;font-size:15px;font-weight:700;color:var(--bc)}
-.bn p{margin:0;font-size:13.5px;color:var(--mu)}
-.bn p:empty{display:none}
-/* Cards */
-.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
-.c{background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:15px 16px 16px;box-shadow:var(--sh);min-width:0}
-.ct{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}
-.b{font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
-.u{font-size:15px;font-weight:600;color:var(--mu);margin-left:2px}
-.br{height:8px;border-radius:99px;background:var(--tr);overflow:hidden;margin:10px 0 6px}
-.fl{height:100%;width:0;border-radius:99px;background:var(--ac);transition:width .5s ease}
-.rg{display:flex;justify-content:space-between;font-size:12px;color:var(--mu)}
-/* Soil ring */
-.gw{position:relative;width:148px;max-width:100%;margin:2px auto 8px}
-.gw svg{display:block;width:100%;height:auto}
-.gw .b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.gt{fill:none;stroke:var(--tr);stroke-width:10}
-.gr{fill:none;stroke-width:10;stroke-linecap:round;stroke-dasharray:289.03;stroke-dashoffset:289.03;stroke:var(--mu);transition:stroke-dashoffset .5s ease}
-.tk{stroke:var(--mu);stroke-width:3;stroke-linecap:round}
-.tr{display:flex;justify-content:center;gap:18px;font-size:12px;color:var(--mu)}
-.tr b{color:var(--tx);font-weight:600}
-/* Tank and pump */
-.tw{display:flex;justify-content:center;margin:2px 0 6px}
-.tw svg{width:104px;height:104px}
-.bd{fill:none;stroke:var(--mu);stroke-width:3}
-.cp{fill:var(--mu)}
-.wt{fill:currentColor;opacity:.9}
-.ts{text-align:center;font-size:16px;font-weight:700}
-.ps{display:flex;align-items:center;gap:9px;font-size:22px;font-weight:700}
-.pd{width:11px;height:11px;border-radius:50%;background:var(--mu);flex:0 0 auto}
-.pd.run{background:var(--ok);animation:p 1.4s ease-out infinite}
-.pd.wait{background:var(--wn)}
-.rs{margin-top:12px;border-top:1px solid var(--ln);padding-top:10px}
-.rw{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0;color:var(--mu)}
-.rw b{color:var(--tx);font-weight:600;text-align:right;overflow-wrap:anywhere}
-/* Pump card and controls */
-.pc{grid-column:1/-1}
-.pb{display:flex;flex-direction:column;gap:14px}
-.pctl{display:flex;flex-direction:column;gap:10px;min-width:0}
-.seg{position:relative;display:inline-flex;align-self:flex-start;padding:3px;border-radius:12px;background:var(--tr)}
-.seg .hl{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:9px;background:var(--cd);box-shadow:var(--sh);transition:transform .18s ease}
-.seg.man .hl{transform:translateX(100%)}
-.seg button{position:relative;z-index:1;flex:1 1 0;min-width:84px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--mu);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.seg button[aria-pressed=true]{color:var(--tx)}
-.seg button:disabled,.bt:disabled{cursor:not-allowed;opacity:.5}
-.prow{display:flex;flex-wrap:wrap;gap:8px}
-.note{margin:8px 0 0;font-size:14px;font-weight:600}
-.note[hidden]{display:none}
-/* Buttons */
-.bt{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 15px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}
-.bt:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
-.bt:active:not(:disabled){transform:translateY(1px)}
-.bt:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
-.bt.pr{background:var(--ac);border-color:var(--ac);color:var(--bg)}
-.bt.pr:hover:not(:disabled){color:var(--bg);filter:brightness(1.08)}
-.bt.dn{border-color:var(--al);color:var(--al)}
-.bt.dn:hover:not(:disabled){background:var(--al);border-color:var(--al);color:var(--bg)}
-@media (min-width:900px){.pc{grid-column:span 3}.pb{flex-direction:row;align-items:flex-start;gap:24px}.pst{flex:0 0 200px}.pctl{flex:1 1 auto}}
-/* Toast */
-.tst{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));z-index:60;max-width:min(92vw,420px);padding:11px 16px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);box-shadow:var(--sh);font-size:14px;font-weight:600;opacity:0;transform:translate(-50%,14px);pointer-events:none;transition:.25s}
-.tst.on{opacity:1;transform:translate(-50%,0)}
-.tst.ok{border-color:var(--ok);color:var(--ok)}
-.tst.al{border-color:var(--al);color:var(--al)}
-/* Charts */
-.ch{margin:26px 0 12px;font-size:16px;font-weight:700}
-.cg{display:grid;grid-template-columns:1fr;gap:14px}
-@media (min-width:900px){.cg{grid-template-columns:1fr 1fr}}
-.cw{position:relative;height:230px}
-.cw canvas{display:block;width:100%!important;height:100%!important}
-.em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:1px dashed var(--ln);border-radius:12px;color:var(--mu);font-size:13px;background:var(--cd)}
-.em[hidden]{display:none}
-.nt{margin:0 0 12px;font-size:13px;color:var(--mu)}
-.nt[hidden]{display:none}
-/* Settings */
-.cfg{margin:26px 0 0;background:var(--cd);border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);overflow:hidden}
-.cfgh{display:flex;align-items:center;cursor:pointer;list-style:none;padding:15px 16px}
-.cfgh::-webkit-details-marker{display:none}
-.cfgh:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
-.cfgh .ct{margin:0}
-.chv{margin-left:auto;transition:transform .2s ease}
-.cfg[open] .chv{transform:rotate(180deg)}
-.cfgb{padding:0 16px 16px}
-.fgr{display:grid;grid-template-columns:1fr;gap:14px}
-@media (min-width:900px){.fgr{grid-template-columns:1fr 1fr 1fr;gap:18px}}
-.grp{margin:0;padding:12px 14px 14px;border:1px solid var(--ln);border-radius:14px;min-width:0}
-.gh{padding:0 6px;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}
-.fld{position:relative;margin:12px 0 0}
-.fld[data-u]::after{content:attr(data-u);position:absolute;right:12px;bottom:0;height:44px;line-height:44px;font-size:13px;font-weight:600;color:var(--mu);pointer-events:none}
-.lb{display:block;margin:0 0 5px;font-size:13px;font-weight:600}
-.in{display:block;width:100%;height:44px;padding:0 42px 0 12px;border:1px solid var(--ln);border-radius:11px;background:var(--bg);color:var(--tx);font:inherit;font-size:15px;font-weight:600}
-.in:focus{outline:2px solid var(--ac);outline-offset:1px}
-.in::-webkit-outer-spin-button,.in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.in[type=number]{-moz-appearance:textfield}
-.sw{position:relative;display:inline-flex;align-items:center;gap:10px;min-height:44px;cursor:pointer;font-weight:600;color:var(--mu)}
-.sw input{position:absolute;opacity:0;width:0;height:0}
-.sl{position:relative;flex:0 0 auto;width:46px;height:26px;border:1px solid var(--ln);border-radius:99px;background:var(--tr);transition:.18s}
-.sl::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--cd);transition:transform .18s ease}
-.sw input:checked+.sl{background:var(--ac);border-color:var(--ac)}
-.sw input:checked+.sl::after{transform:translateX(20px)}
-.sw input:focus-visible+.sl{outline:2px solid var(--ac);outline-offset:2px}
-.hlp{margin:8px 0 0;font-size:12.5px;color:var(--mu)}
-.aerr{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--al)}
-[hidden]{display:none}
-.sft{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px}
-.dh{font-size:12.5px;font-weight:600;color:var(--wn)}
-/* Footer */
-.ft{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;margin-top:18px;padding:14px 4px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--mu)}
-.fi{display:inline-flex;align-items:center;gap:6px}
-.sg{width:19px;height:17px;flex:0 0 auto}
-.sg rect{fill:currentColor}
-.c,.bn,.ft{transition:.3s}
-.off .c,.off .bn,.off .ft{opacity:.45;filter:grayscale(.35)}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style>
-</head>
-<body>
-<div class="w">
-<header class="hd">
-<svg class="lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5C4.5 11.6 10.6 5 19.5 4.5c.5 8.9-5.9 15-15 15z"/><path d="M4.5 19.5C8 15 12.4 11.6 16.6 9.6"/></svg>
-<div><h1>Smart Garden</h1><p class="sb">Garden at <span id="ipText">--</span></p></div>
-<span id="pill" class="pl"><i></i><span id="pillText">Connecting</span></span>
-</header>
-<main>
-<div id="banner" class="bn" role="status" aria-live="polite"><h2 id="bTitle">Reading the garden</h2><p id="bReasons"></p></div>
-<div class="g">
-
-<article class="c">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s6.2 6.4 6.2 10.6a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.5 12 3.5z"/></svg>Soil moisture</h2>
-<div class="gw">
-<svg viewBox="0 0 130 130" aria-hidden="true">
-<circle class="gt" cx="65" cy="65" r="46"/>
-<circle class="gr" id="soilRing" cx="65" cy="65" r="46" transform="rotate(-90 65 65)"/>
-<line class="tk" id="dryTick" x1="65" y1="13" x2="65" y2="7"/>
-<line class="tk" id="wetTick" x1="65" y1="13" x2="65" y2="7"/>
-</svg>
-<div class="b" id="soilVal">--</div>
-</div>
-<div class="tr"><span>Dry <b id="dryVal">--</b></span><span>Wet <b id="wetVal">--</b></span></div>
-</article>
-
-<article class="c">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h12v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M9 3h6v6H9z"/><path d="M6 15c2-1.5 4-1.5 6 0s4 1.5 6 0"/></svg>Water tank</h2>
-<div class="tw">
-<svg id="tankSvg" viewBox="0 0 80 80" aria-hidden="true">
-<defs><clipPath id="tankClip"><rect x="19" y="21" width="42" height="48" rx="9"/></clipPath></defs>
-<rect class="bd" x="19" y="21" width="42" height="48" rx="9"/>
-<rect class="wt" id="tankWater" x="19" y="21" width="42" height="48" clip-path="url(#tankClip)"/>
-<rect class="bd" x="33" y="9" width="14" height="13"/>
-<rect class="cp" x="29" y="4" width="22" height="6" rx="3"/>
-</svg>
-</div>
-<div class="ts" id="tankText">--</div>
-</article>
-
-<article class="c">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Temperature</h2>
-<div class="b"><span id="tempVal">--</span><span class="u">&deg;C</span></div>
-<div class="br"><div class="fl" id="tempBar"></div></div>
-<div class="rg"><span id="tempMin">--</span><span id="tempMax">--</span></div>
-</article>
-
-<article class="c">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8c3-2.6 6 2.6 9 0s6 2.6 9 0"/><path d="M3 13c3-2.6 6 2.6 9 0s6 2.6 9 0"/><path d="M3 18c3-2.6 6 2.6 9 0s6 2.6 9 0"/></svg>Air humidity</h2>
-<div class="b"><span id="humVal">--</span><span class="u">%</span></div>
-<div class="br"><div class="fl" id="humBar"></div></div>
-<div class="rg"><span id="humMin">--</span><span id="humMax">--</span></div>
-</article>
-
-<article class="c">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></svg>Light</h2>
-<div class="b"><span id="lightVal">--</span><span class="u">%</span></div>
-<div class="br"><div class="fl" id="lightBar"></div></div>
-</article>
-
-<article class="c pc">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="9" width="14" height="10" rx="3"/><path d="M12 9V4M9 4h6"/></svg>Pump</h2>
-<div class="pb">
-<div class="pst">
-<div class="ps"><span class="pd" id="pumpDot"></span><span id="pumpTxt">Idle</span></div>
-<p class="note" id="pumpNote" hidden></p>
-<div class="br" id="pumpProg" hidden><div class="fl" id="pumpBar"></div></div>
-<div class="rs"><div class="rw"><span>Mode</span><b id="pumpMode">Auto</b></div><div class="rw"><span>Reason</span><b id="pumpReason">--</b></div></div>
-</div>
-<div id="pumpControls" class="pctl">
-<div class="seg" id="modeSeg" role="group">
-<span class="hl" aria-hidden="true"></span>
-<button id="modeAuto" data-act="mode" data-mode="auto" aria-pressed="true">Auto</button>
-<button id="modeManual" data-act="mode" data-mode="manual" aria-pressed="false">Manual</button>
-</div>
-<p class="nt" id="pumpHint" hidden>Automatic watering is off. The pump only runs when you start it.</p>
-<p class="ct">Water now</p>
-<div class="prow" id="pumpPresets"></div>
-<button class="bt dn" id="pumpStop" data-act="stop" disabled>Stop</button>
-</div>
-</div>
-</article>
-
-</div>
-
-<section>
-<h2 class="ch">Last 3 hours</h2>
-<p class="nt" id="chartNote" hidden>Charts need internet access to load Chart.js. The rest of the dashboard works without it.</p>
-<div class="cg">
-<article class="c">
-<h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Temperature and humidity</h3>
-<div class="cw">
-<canvas id="chartTemp" role="img" aria-label="Temperature and air humidity over the last three hours"></canvas>
-<p class="em" id="tempEmpty">Collecting data</p>
-</div>
-</article>
-<article class="c">
-<h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s6.2 6.4 6.2 10.6a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.5 12 3.5z"/></svg>Soil moisture and light</h3>
-<div class="cw">
-<canvas id="chartSoil" role="img" aria-label="Soil moisture and light over the last three hours with the dry and wet limits"></canvas>
-<p class="em" id="soilEmpty">Collecting data</p>
-</div>
-</article>
-</div>
-</section>
-
-<details class="cfg" id="setPanel">
-<summary class="cfgh">
-<h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg>Settings<svg class="chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></h2>
-</summary>
-<form class="cfgb" id="setForm" novalidate>
-<div class="fgr">
-
-<fieldset class="grp">
-<legend class="gh">Watering</legend>
-<div class="fld" data-u="%">
-<label class="lb" for="sSoilDry">Soil dry limit</label>
-<input class="in" id="sSoilDry" name="soil_dry" type="number" inputmode="decimal" min="0" max="100" step="1">
-</div>
-<div class="fld" data-u="%">
-<label class="lb" for="sSoilWet">Soil wet limit</label>
-<input class="in" id="sSoilWet" name="soil_wet" type="number" inputmode="decimal" min="0" max="100" step="1">
-</div>
-<div class="fld" data-u="s">
-<label class="lb" for="sMaxPump">Maximum pump run</label>
-<input class="in" id="sMaxPump" name="max_pump_s" type="number" inputmode="numeric" min="5" max="120" step="1">
-</div>
-<div class="fld" data-u="s">
-<label class="lb" for="sPause">Pause after a safety stop</label>
-<input class="in" id="sPause" name="pause_s" type="number" inputmode="numeric" min="10" max="600" step="1">
-</div>
-<p class="aerr" id="errWater" hidden></p>
-<p class="hlp">The pump starts when the soil falls below the dry limit and stops above the wet limit.</p>
-</fieldset>
-
-<fieldset class="grp">
-<legend class="gh">Alerts</legend>
-<div class="fld" data-u="&deg;C">
-<label class="lb" for="sTempMin">Temperature minimum</label>
-<input class="in" id="sTempMin" name="temp_min" type="number" inputmode="decimal" min="-10" max="60" step="1">
-</div>
-<div class="fld" data-u="&deg;C">
-<label class="lb" for="sTempMax">Temperature maximum</label>
-<input class="in" id="sTempMax" name="temp_max" type="number" inputmode="decimal" min="-10" max="60" step="1">
-</div>
-<div class="fld" data-u="%">
-<label class="lb" for="sHumMin">Air humidity minimum</label>
-<input class="in" id="sHumMin" name="hum_min" type="number" inputmode="decimal" min="0" max="100" step="1">
-</div>
-<div class="fld" data-u="%">
-<label class="lb" for="sHumMax">Air humidity maximum</label>
-<input class="in" id="sHumMax" name="hum_max" type="number" inputmode="decimal" min="0" max="100" step="1">
-</div>
-<p class="aerr" id="errAlerts" hidden></p>
-<p class="hlp">The dashboard warns when the temperature or the air humidity leaves this range.</p>
-</fieldset>
-
-<fieldset class="grp">
-<legend class="gh">Daily summary</legend>
-<div class="fld">
-<label class="lb" for="sDaily">Send a daily summary</label>
-<label class="sw"><input type="checkbox" id="sDaily" name="daily_summary"><span class="sl" aria-hidden="true"></span></label>
-</div>
-<div class="fld">
-<label class="lb" for="sHour">Hour of the day</label>
-<select class="in" id="sHour" name="summary_hour"></select>
-</div>
-<p class="hlp">Sends one WhatsApp message per day with the main numbers.</p>
-</fieldset>
-
-</div>
-<p class="aerr" id="setErr" hidden></p>
-<div class="sft">
-<button type="submit" class="bt pr" id="setSave">Save</button>
-<button type="button" class="bt dn" id="setReset">Reset to defaults</button>
-<span class="dh" id="setDirty" hidden>Unsaved changes</span>
-</div>
-</form>
-</details>
-</main>
-<footer class="ft">
-<span id="uptime">--</span>
-<span class="fi"><svg class="sg" id="sig" viewBox="0 0 26 24" aria-hidden="true"><rect x="1" y="16" width="4" height="6" rx="1"/><rect x="8" y="12" width="4" height="10" rx="1"/><rect x="15" y="8" width="4" height="14" rx="1"/><rect x="22" y="3" width="4" height="19" rx="1"/></svg><span id="rssi">--</span></span>
-<span id="fIp">--</span>
-<span id="mem">--</span>
-<span id="ago">Waiting for data</span>
-</footer>
-<div id="toast" class="tst" role="status" aria-live="polite"></div>
-</div>
+<style>:root{--bg:#f2f5f1;--cd:#fff;--tx:#14201a;--mu:#5d6f64;--ln:#e2e9e3;--tr:#e9efe9;--sh:0 1px 2px #0f1e140d,0 8px 22px #0f1e1410;--ok:#127a45;--wn:#a26200;--al:#c0342a;--ac:#1d8a4e;--c1:#bf3f0d;--c2:#1c5fb8;--c3:#2b7a30;--c4:#a86a00}@media (prefers-color-scheme:dark){:root{--bg:#0a1410;--cd:#13211a;--tx:#e7f0ea;--mu:#93a89b;--ln:#213429;--tr:#1d3026;--sh:0 1px 2px #0008,0 8px 22px #0006;--ok:#4ad07f;--wn:#f0b13e;--al:#ff6f61;--ac:#4ad07f;--c1:#ff9b57;--c2:#6cb6ff;--c3:#5ddc8f;--c4:#f2c14e}}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;font-variant-numeric:tabular-nums}button,summary{touch-action:manipulation}.w{max-width:1100px;margin:0 auto;padding:16px 16px 32px}.hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}.ct svg,.lg,.bi{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.lg{width:34px;height:34px;color:var(--ac)}.bi{width:20px;height:20px;stroke-width:2;color:var(--bc)}.bi:empty{display:none}h1{margin:0;font-size:21px;font-weight:700}.sb{margin:1px 0 0;font-size:13px;color:var(--mu)}.pl{margin-left:auto;display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border:1px solid var(--ln);border-radius:999px;background:var(--cd);font-size:13px;font-weight:600;color:var(--mu)}.pl i{width:8px;height:8px;border-radius:50%;background:currentColor}.pl.live{color:var(--ok);border-color:var(--ok)}.pl.live i{animation:p 1.8s ease-out infinite}.pl.off{color:var(--al);border-color:var(--al)}@keyframes p{0%{box-shadow:0 0 0 0 var(--ok)}to{box-shadow:0 0 0 8px #0000}}.bn{--bc:var(--mu);display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--cd);border:1px solid var(--ln);border-left:4px solid var(--bc);border-radius:16px;padding:12px 16px;margin-bottom:16px;box-shadow:var(--sh)}.bn h2{margin:0;font-size:15px;font-weight:700;color:var(--bc)}.bn p{margin:0;font-size:13.5px;color:var(--mu)}.bn p:empty{display:none}.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:16px}.c{background:var(--cd);border:1px solid var(--ln);border-radius:16px;padding:16px;box-shadow:var(--sh);min-width:0}.ct{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}.b{font-size:30px;font-weight:700;line-height:1.1}.u{font-size:15px;font-weight:600;color:var(--mu);margin-left:2px}.br{height:8px;border-radius:99px;background:var(--tr);overflow:hidden;margin:10px 0 6px}.fl{height:100%;width:0;border-radius:99px;background:var(--ac);transition:width .5s ease}.rg{display:flex;justify-content:space-between;font-size:12px;color:var(--mu)}.gw{position:relative;width:148px;max-width:100%;margin:2px auto 8px}.gw svg{display:block;width:100%;height:auto}.gw .b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.gt{fill:none;stroke:var(--tr);stroke-width:10}.gr{fill:none;stroke-width:10;stroke-linecap:round;stroke-dasharray:289.03;stroke-dashoffset:289.03;stroke:var(--mu);transition:stroke-dashoffset .5s ease}.tk{stroke:var(--mu);stroke-width:3;stroke-linecap:round}.tr{display:flex;justify-content:center;gap:16px;font-size:12px;color:var(--mu)}.tr b{color:var(--tx);font-weight:600}.tw{display:flex;justify-content:center;margin:2px 0 6px}.tw svg{width:104px;height:104px}.bd{fill:none;stroke:var(--mu);stroke-width:3}.bd.emp{stroke:var(--al);stroke-dasharray:6 5}.tmk{stroke:var(--mu);opacity:.45;stroke-width:1.5;stroke-linecap:round}.wt{fill:var(--c2);transition:transform .6s ease}.ts{text-align:center;font-size:16px;font-weight:700}.lt{display:flex;flex-direction:column}.lt .br{margin-top:auto}.lt .fl{background:var(--c4)}.lw{color:var(--c4);margin-left:6px}.ps{display:flex;align-items:center;gap:8px;font-size:22px;font-weight:700}.pd{width:11px;height:11px;border-radius:50%;background:var(--mu);flex:0 0 auto}.pd.run{background:var(--ok);animation:p 1.4s ease-out infinite}.pd.wait{background:var(--wn)}.rs{margin-top:12px;border-top:1px solid var(--ln);padding-top:8px}.rw{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0;color:var(--mu)}.rw b{color:var(--tx);font-weight:600;text-align:right;overflow-wrap:anywhere}.pc{grid-column:1/-1}.pb{display:flex;flex-direction:column;gap:16px}.pctl{display:flex;flex-direction:column;gap:8px;min-width:0;align-items:flex-start}.seg{position:relative;display:inline-flex;padding:3px;border-radius:12px;background:var(--tr)}.seg .hl{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:9px;background:var(--cd);box-shadow:var(--sh);transition:transform .18s ease}.seg.man .hl{transform:translateX(100%)}.seg button{position:relative;z-index:1;flex:1 1 0;min-width:84px;min-height:40px;border:0;border-radius:9px;background:transparent;color:var(--mu);font:inherit;font-size:13px;font-weight:600;cursor:pointer}.seg button[aria-pressed=true]{color:var(--tx)}.seg button:disabled,.bt:disabled{cursor:not-allowed;opacity:.5}.prow{display:flex;flex-wrap:wrap;gap:8px}.note{margin:8px 0 0;font-size:14px;font-weight:600}.bt{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 15px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s}.bt:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}.bt:active:not(:disabled){transform:translateY(1px)}.bt:focus-visible{outline:2px solid var(--ac);outline-offset:2px}.bt.pr{background:var(--ac);border-color:var(--ac);color:var(--bg)}.bt.pr:hover:not(:disabled){color:var(--bg);filter:brightness(1.08)}.bt.dn{border-color:var(--al);color:var(--al)}.bt.dn:hover:not(:disabled){background:var(--al);border-color:var(--al);color:var(--bg)}@media (min-width:900px){.pb{flex-direction:row;align-items:flex-start;gap:24px}.pst{flex:0 0 220px}.pctl{flex:1 1 auto}}@media (max-width:520px){.c{padding:12px}.g{gap:8px}.b{font-size:24px}.gw{width:118px}.tw svg{width:84px;height:84px}.tr{gap:8px}}@media (hover:hover){.c:hover,.cfg:hover{transform:translateY(-2px)}}.tst{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));z-index:60;max-width:min(92vw,420px);padding:11px 16px;border:1px solid var(--ln);border-radius:12px;background:var(--cd);color:var(--tx);box-shadow:var(--sh);font-size:14px;font-weight:600;opacity:0;transform:translate(-50%,14px);pointer-events:none;transition:.25s}.tst.on{opacity:1;transform:translate(-50%,0)}.tst.ok{border-color:var(--ok);color:var(--ok)}.tst.al{border-color:var(--al);color:var(--al)}.ch{margin:24px 0 8px;font-size:16px;font-weight:700}.cg{display:grid;grid-template-columns:1fr;gap:16px}@media (min-width:900px){.cg{grid-template-columns:1fr 1fr}}.cw{position:relative;height:230px}.cw canvas{display:block;width:100%!important;height:100%!important}.em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;border:1px dashed var(--ln);border-radius:12px;color:var(--mu);font-size:13px;background:var(--cd)}.nt{margin:0 0 12px;font-size:13px;color:var(--mu)}.cfg{margin:24px 0 0;background:var(--cd);border:1px solid var(--ln);border-radius:16px;box-shadow:var(--sh);overflow:hidden}.cfgh{display:flex;align-items:center;cursor:pointer;list-style:none;padding:16px}.cfgh::-webkit-details-marker{display:none}.cfgh:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}.cfgh .ct{margin:0}.chv{margin-left:auto;transition:transform .2s ease}.cfg[open] .chv{transform:rotate(180deg)}.cfgb{padding:0 16px 16px}.fgr{display:grid;grid-template-columns:1fr;gap:16px}@media (min-width:900px){.fgr{grid-template-columns:1fr 1fr 1fr;gap:16px}}.grp{margin:0;padding:12px 14px 14px;border:1px solid var(--ln);border-radius:14px;min-width:0}.gh{padding:0 6px;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}.fld{position:relative;margin:12px 0 0}.fld[data-u]::after{content:attr(data-u);position:absolute;right:12px;bottom:0;height:44px;line-height:44px;font-size:13px;font-weight:600;color:var(--mu);pointer-events:none}.lb{display:block;margin:0 0 5px;font-size:13px;font-weight:600}.in{display:block;width:100%;height:44px;padding:0 42px 0 12px;border:1px solid var(--ln);border-radius:11px;background:var(--bg);color:var(--tx);font:inherit;font-size:15px;font-weight:600}.in:focus{outline:2px solid var(--ac);outline-offset:1px}.in::-webkit-outer-spin-button,.in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.in[type=number]{-moz-appearance:textfield}.sw{position:relative;display:inline-flex;align-items:center;gap:8px;min-height:44px;cursor:pointer;font-weight:600;color:var(--mu)}.sw input{position:absolute;opacity:0;width:0;height:0}.sl{position:relative;flex:0 0 auto;width:46px;height:26px;border:1px solid var(--ln);border-radius:99px;background:var(--tr);transition:.18s}.sl::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--cd);transition:transform .18s ease}.sw input:checked+.sl{background:var(--ac);border-color:var(--ac)}.sw input:checked+.sl::after{transform:translateX(20px)}.sw input:focus-visible+.sl{outline:2px solid var(--ac);outline-offset:2px}.hlp{margin:8px 0 0;font-size:12.5px;color:var(--mu)}.aerr{margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--al)}[hidden]{display:none}.sft{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}.dh{font-size:12.5px;font-weight:600;color:var(--wn)}.ft{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin-top:16px;padding:16px 4px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--mu)}.fi{display:inline-flex;align-items:center;gap:8px}.sg{width:19px;height:17px;flex:0 0 auto}.sg rect{fill:currentColor}.c,.bn,.ft{transition:.3s}.off .c,.off .bn,.off .ft{opacity:.45;filter:grayscale(.35)}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style></head><body><div class="w"><header class="hd"><svg class="lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5C4.5 11.6 10.6 5 19.5 4.5c.5 8.9-5.9 15-15 15z"/><path d="M4.5 19.5C8 15 12.4 11.6 16.6 9.6"/></svg><div><h1>Smart Garden</h1><p class="sb">Garden at <span id="ipText">--</span></p></div><span id="pill" class="pl"><i></i><span id="pillText">Connecting</span></span></header><main><div id="banner" class="bn" role="status" aria-live="polite"><span class="bi" id="bIcon"></span><h2 id="bTitle">Reading the garden</h2><p id="bReasons"></p></div><div class="g"><article class="c"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s6.2 6.4 6.2 10.6a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.5 12 3.5z"/></svg>Soil moisture</h2><div class="gw"><svg viewBox="0 0 130 130" aria-hidden="true"><circle class="gt" cx="65" cy="65" r="46"/><circle class="gr" id="soilRing" cx="65" cy="65" r="46" transform="rotate(-90 65 65)"/><line class="tk" id="dryTick" x1="65" y1="13" x2="65" y2="7"/><line class="tk" id="wetTick" x1="65" y1="13" x2="65" y2="7"/></svg><div class="b" id="soilVal">--</div></div><div class="tr"><span>Dry <b id="dryVal">--</b></span><span>Wet <b id="wetVal">--</b></span></div></article><article class="c"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9h12v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M9 3h6v6H9z"/><path d="M6 15c2-1.5 4-1.5 6 0s4 1.5 6 0"/></svg>Water tank</h2><div class="tw"><svg viewBox="0 0 80 80" aria-hidden="true"><defs><clipPath id="tankClip"><rect x="18" y="20" width="44" height="52" rx="8"/></clipPath></defs><g clip-path="url(#tankClip)"><path class="wt" id="tankWater" d="M14 21q6-3 12 0t12 0t12 0t12 0t12 0V78H14Z"/></g><rect class="bd" x="37" y="8" width="6" height="12" rx="2"/><rect class="bd" id="tankBody" x="18" y="20" width="44" height="52" rx="8"/><line class="tmk" x1="64" y1="30" x2="69" y2="30"/><line class="tmk" x1="64" y1="45" x2="69" y2="45"/><line class="tmk" x1="64" y1="60" x2="69" y2="60"/></svg></div><div class="ts" id="tankText">--</div></article><article class="c"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Temperature</h2><div class="b"><span id="tempVal">--</span><span class="u">&deg;C</span></div><div class="br"><div class="fl" id="tempBar"></div></div><div class="rg"><span id="tempMin">--</span><span id="tempMax">--</span></div></article><article class="c"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8c3-2.6 6 2.6 9 0s6 2.6 9 0"/><path d="M3 13c3-2.6 6 2.6 9 0s6 2.6 9 0"/><path d="M3 18c3-2.6 6 2.6 9 0s6 2.6 9 0"/></svg>Air humidity</h2><div class="b"><span id="humVal">--</span><span class="u">%</span></div><div class="br"><div class="fl" id="humBar"></div></div><div class="rg"><span id="humMin">--</span><span id="humMax">--</span></div></article><article class="c lt"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>Light</h2><div class="b"><span id="lightVal">--</span><span class="u">%</span><span class="u lw" id="lightWord">--</span></div><div class="br"><div class="fl" id="lightBar"></div></div></article><article class="c pc"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="9" width="14" height="10" rx="3"/><path d="M12 9V4M9 4h6"/></svg>Pump</h2><div class="pb"><div class="pst"><div class="ps"><span class="pd" id="pumpDot"></span><span id="pumpTxt">Idle</span></div><p class="note" id="pumpNote" hidden></p><div class="br" id="pumpProg" hidden><div class="fl" id="pumpBar"></div></div><div class="rs"><div class="rw"><span>Mode</span><b id="pumpMode">Auto</b></div><div class="rw"><span>Reason</span><b id="pumpReason">--</b></div></div></div><div id="pumpControls" class="pctl"><div class="seg" id="modeSeg" role="group"><span class="hl" aria-hidden="true"></span><button id="modeAuto" data-act="mode" data-mode="auto" aria-pressed="true">Auto</button><button id="modeManual" data-act="mode" data-mode="manual" aria-pressed="false">Manual</button></div><p class="nt" id="pumpHint" hidden>Automatic watering is off. The pump only runs when you start it.</p><p class="ct">Water now</p><div class="prow" id="pumpPresets"></div><button class="bt dn" id="pumpStop" data-act="stop" disabled>Stop</button></div></div></article></div><section><h2 class="ch">Last 3 hours</h2><p class="nt" id="chartNote" hidden>Charts need internet access to load Chart.js. The rest of the dashboard works without it.</p><div class="cg"><article class="c"><h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></svg>Temperature and humidity</h3><div class="cw"><canvas id="chartTemp" role="img" aria-label="Temperature and air humidity over the last three hours"></canvas><p class="em" id="tempEmpty">Collecting data</p></div></article><article class="c"><h3 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5s6.2 6.4 6.2 10.6a6.2 6.2 0 0 1-12.4 0C5.8 9.9 12 3.5 12 3.5z"/></svg>Soil moisture and light</h3><div class="cw"><canvas id="chartSoil" role="img" aria-label="Soil moisture and light over the last three hours with the dry and wet limits"></canvas><p class="em" id="soilEmpty">Collecting data</p></div></article></div></section><details class="cfg" id="setPanel"><summary class="cfgh"><h2 class="ct"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h7M15 17h5"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></svg>Settings<svg class="chv" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></h2></summary><form class="cfgb" id="setForm" novalidate><div class="fgr"><fieldset class="grp"><legend class="gh">Watering</legend><div class="fld" data-u="%"><label class="lb" for="sSoilDry">Soil dry limit</label><input class="in" id="sSoilDry" name="soil_dry" type="number" inputmode="decimal" min="0" max="100" step="1"></div><div class="fld" data-u="%"><label class="lb" for="sSoilWet">Soil wet limit</label><input class="in" id="sSoilWet" name="soil_wet" type="number" inputmode="decimal" min="0" max="100" step="1"></div><div class="fld" data-u="s"><label class="lb" for="sMaxPump">Maximum pump run</label><input class="in" id="sMaxPump" name="max_pump_s" type="number" inputmode="numeric" min="5" max="120" step="1"></div><div class="fld" data-u="s"><label class="lb" for="sPause">Pause after a safety stop</label><input class="in" id="sPause" name="pause_s" type="number" inputmode="numeric" min="10" max="600" step="1"></div><p class="aerr" id="errWater" hidden></p><p class="hlp">The pump starts when the soil falls below the dry limit and stops above the wet limit.</p></fieldset><fieldset class="grp"><legend class="gh">Alerts</legend><div class="fld" data-u="&deg;C"><label class="lb" for="sTempMin">Temperature minimum</label><input class="in" id="sTempMin" name="temp_min" type="number" inputmode="decimal" min="-10" max="60" step="1"></div><div class="fld" data-u="&deg;C"><label class="lb" for="sTempMax">Temperature maximum</label><input class="in" id="sTempMax" name="temp_max" type="number" inputmode="decimal" min="-10" max="60" step="1"></div><div class="fld" data-u="%"><label class="lb" for="sHumMin">Air humidity minimum</label><input class="in" id="sHumMin" name="hum_min" type="number" inputmode="decimal" min="0" max="100" step="1"></div><div class="fld" data-u="%"><label class="lb" for="sHumMax">Air humidity maximum</label><input class="in" id="sHumMax" name="hum_max" type="number" inputmode="decimal" min="0" max="100" step="1"></div><p class="aerr" id="errAlerts" hidden></p><p class="hlp">The dashboard warns when the temperature or the air humidity leaves this range.</p></fieldset><fieldset class="grp"><legend class="gh">Daily summary</legend><div class="fld"><label class="lb" for="sDaily">Send a daily summary</label><label class="sw"><input type="checkbox" id="sDaily" name="daily_summary"><span class="sl" aria-hidden="true"></span></label></div><div class="fld"><label class="lb" for="sHour">Hour of the day</label><select class="in" id="sHour" name="summary_hour"></select></div><p class="hlp">Sends one WhatsApp message per day with the main numbers.</p></fieldset></div><p class="aerr" id="setErr" hidden></p><div class="sft"><button type="submit" class="bt pr" id="setSave">Save</button><button type="button" class="bt dn" id="setReset">Reset to defaults</button><span class="dh" id="setDirty" hidden>Unsaved changes</span></div></form></details></main><footer class="ft"><span id="uptime">--</span><span class="fi"><svg class="sg" id="sig" viewBox="0 0 26 24" aria-hidden="true"><rect x="1" y="16" width="4" height="6" rx="1"/><rect x="8" y="12" width="4" height="10" rx="1"/><rect x="15" y="8" width="4" height="14" rx="1"/><rect x="22" y="3" width="4" height="19" rx="1"/></svg><span id="rssi">--</span></span><span id="fIp">--</span><span id="mem">--</span><span id="ago">Waiting for data</span></footer><div id="toast" class="tst" role="status" aria-live="polite"></div></div>
 <script>
 'use strict';
 var M=Math,C=289.03,cfg=null,lastR=null,tOk=0,lastP=null,busy=false,off=false,pumpLen=0,tracking=false,maxBuilt=null,pollT=0,tT=0;
@@ -348,296 +28,48 @@ function N(v){return typeof v=='number'&&!isNaN(v);}
 function num(v,d){return N(v)?(d?v.toFixed(d):String(M.round(v))):'--';}
 function clamp(v){return N(v)?M.max(0,M.min(100,v)):0;}
 function kb(v){return N(v)?M.round(v/1024)+' KB':'--';}
-function fetchJson(url,o){
- var a=new AbortController(),t=setTimeout(function(){a.abort();},4000);
- o=o||{};o.cache='no-store';o.signal=a.signal;
- return fetch(url,o).then(function(r){if(!r.ok){throw Error('http '+r.status);}return r.json();}).then(function(d){clearTimeout(t);return d;},function(e){clearTimeout(t);throw e;});
-}
-function online(ok){
- off=!ok;
- document.body.classList.toggle('off',!ok);
- el('pill').className='pl '+(ok?'live':'off');
- set('pillText',ok?'Live':'Offline');
- updControls(lastP,lastR);
-}
-function agoText(){
- if(!tOk){set('ago','Waiting for data');return;}
- var s=M.round((Date.now()-tOk)/1000);
- set('ago',s<1?'Updated just now':'Updated '+s+' s ago');
-}
-function uptime(t){
- if(!N(t)){return '--';}
- var d=M.floor(t/86400),h=M.floor(t%86400/3600),m=M.floor(t%3600/60);
- return d>0?d+'d '+h+'h '+m+'m':h>0?h+'h '+m+'m':m>0?m+'m':M.floor(t%60)+'s';
-}
-function signal(r){
- var n=r>=-60?4:r>=-70?3:r>=-80?2:r>=-95?1:0,bs=el('sig').children,i;
- for(i=0;i<bs.length;i++){bs[i].setAttribute('opacity',i<n?1:.25);}
-}
-function tickAt(id,p){
- var e=el(id);
- if(p==null){e.style.display='none';return;}
- e.style.display='';
- var a=((M.max(0,M.min(100,p))*3.6-90)*M.PI)/180,c=M.cos(a),s=M.sin(a);
- e.setAttribute('x1',M.round(65+52*c));e.setAttribute('y1',M.round(65+52*s));
- e.setAttribute('x2',M.round(65+58*c));e.setAttribute('y2',M.round(65+58*s));
-}
-function banner(r,s){
- var l=[],tx=[],i,lv='',ti='Reading the garden';
- if(s){
-  if(!r.soil_ok){l.push(['al','Soil sensor not answering']);}
-  else if(N(r.soil)&&r.soil<s.soil_dry){l.push(['wn','Soil is dry']);}
-  if(r.tank_empty){l.push(['al','Water tank is empty']);}
-  if(!r.dht_ok){l.push(['al','Temperature sensor not answering']);}
-  else{
-   if(N(r.temperature)&&(r.temperature<s.temp_min||r.temperature>s.temp_max)){l.push(['wn','Temperature outside '+num(s.temp_min)+' to '+num(s.temp_max)+' C']);}
-   if(N(r.humidity)&&(r.humidity<s.hum_min||r.humidity>s.hum_max)){l.push(['wn','Air humidity outside '+num(s.hum_min)+' to '+num(s.hum_max)+' %']);}
-  }
-  if((r.pump.blocked_remaining_s||0)>0){l.push(['wn','Pump paused after a safety stop']);}
-  for(i=0;i<l.length;i++){if(l[i][0]=='al'){lv='al';break;}}
-  if(!lv){lv=l.length?'wn':'ok';}
-  ti=lv=='al'?'Alert':lv=='wn'?'Needs attention':'All good';
- }
- el('banner').style.setProperty('--bc',lv?'var(--'+lv+')':'var(--mu)');
- set('bTitle',ti);
- for(i=0;i<l.length;i++){tx.push(l[i][1]);}
- set('bReasons',tx.join(' | '));
-}
-function soil(r,s){
- var ok=!!r.soil_ok&&N(r.soil),v=ok?r.soil:null;
- var dr=s&&N(s.soil_dry)?s.soil_dry:null,we=s&&N(s.soil_wet)?s.soil_wet:null;
- var g=el('soilRing'),val=el('soilVal');
- if(v==null){val.textContent='--';g.style.strokeDashoffset=C;}
- else{var p=clamp(v);g.style.strokeDashoffset=M.round(C*(1-p/100));val.textContent=M.round(p)+'%';}
- var st=v==null?'mu':(dr!=null&&v<dr?'wn':'ok');
- g.style.stroke='var(--'+st+')';
- val.style.color=st=='ok'?'':'var(--'+st+')';
- set('dryVal',num(dr));set('wetVal',num(we));
- tickAt('dryTick',dr);tickAt('wetTick',we);
-}
-function tank(r){
- var e=r.tank_empty,w=el('tankWater'),t=el('tankText');
- w.setAttribute('y',e?66:21);w.setAttribute('height',e?3:48);
- el('tankSvg').style.color=e?'var(--al)':'var(--ac)';
- t.textContent=e?'Tank empty':'Water available';
- t.style.color=e?'var(--al)':'var(--ok)';
-}
-function metric(p,v,mn,mx){
- set(p+'Val',num(v,1));set(p+'Min',num(mn));set(p+'Max',num(mx));
- var pc=v==null||mn==null||mx==null||mx<=mn?0:M.max(0,M.min(100,((v-mn)/(mx-mn))*100));
- var ok=v!=null&&mn!=null&&mx!=null&&mx>mn&&v>=mn&&v<=mx,st=v==null?'mu':(ok?'ok':'wn');
- var b=el(p+'Bar');
- b.style.width=M.round(pc)+'%';b.style.background='var(--'+st+')';
- el(p+'Val').style.color=st=='ok'?'':'var(--'+st+')';
-}
-function pump(p){
- if(!p){return;}
- lastP=p;
- var run=!!p.running,w=M.round(p.blocked_remaining_s||0),rem=M.round(p.manual_remaining_s||0),st='',ti='Idle';
- if(run){st='ok';ti='Running';}else if(w>0){st='wn';ti='Paused '+w+' s';}
- el('pumpDot').className='pd'+(run?' run':w>0?' wait':'');
- var e=el('pumpTxt');
- e.textContent=ti;e.style.color=st?'var(--'+st+')':'';
- var man=p.mode=='manual';
- set('pumpMode',man?'Manual':'Auto');
- set('pumpReason',p.reason?p.reason:'--');
- el('modeSeg').className='seg'+(man?' man':'');
- el('modeAuto').setAttribute('aria-pressed',man?'false':'true');
- el('modeManual').setAttribute('aria-pressed',man?'true':'false');
- el('pumpHint').hidden=!man;
- var manual=run&&man&&rem>0,note='',nc='';
- if(manual){if(!tracking){tracking=true;pumpLen=rem;}note='Watering, '+rem+' s left';nc='ok';}
- else if(run){tracking=false;note='Watering (automatic)';nc='ok';}
- else if(w>0){tracking=false;note='Paused, '+w+' s left';nc='wn';}
- else{tracking=false;}
- var ne=el('pumpNote');
- ne.hidden=!note;ne.textContent=note;ne.style.color=nc?'var(--'+nc+')':'';
- var pe=el('pumpProg');
- if(manual){
-  var pc=M.max(0,M.min(100,((pumpLen-rem)/(pumpLen||1))*100));
-  el('pumpBar').style.width=pc+'%';pe.hidden=false;
- }else{pe.hidden=true;el('pumpBar').style.width='0%';}
- updControls(p,lastR);
-}
-function updControls(p,r){
- p=p||lastP;
- var empty=!!(r&&r.tank_empty),run=!!(p&&p.running),lock=busy||off;
- var why=empty?'Tank is empty':off?'Dashboard offline':'';
- el('modeAuto').disabled=busy;el('modeManual').disabled=busy;
- var bs=el('pumpPresets').children,i,b,d;
- for(i=0;i<bs.length;i++){b=bs[i];d=lock||empty;b.disabled=d;b.title=d?why:'';}
- el('pumpStop').disabled=lock||!run;
-}
-function buildPresets(s){
- if(!s||!N(s.max_pump_s)){return;}
- var max=M.round(s.max_pump_s),all=[5,10,20,30],out=[],h='',i;
- if(maxBuilt==max){return;}
- maxBuilt=max;
- for(i=0;i<all.length;i++){if(all[i]<=max){out.push(all[i]);}}
- if(out.indexOf(max)<0){out.push(max);}
- for(i=0;i<out.length;i++){h+='<button class="bt pr" data-act=run data-run='+out[i]+'>'+out[i]+' s</button>';}
- el('pumpPresets').innerHTML=h;
- updControls(lastP,lastR);
-}
+function fetchJson(url,o){var a=new AbortController(),t=setTimeout(function(){a.abort();},4000);o=o||{};o.cache='no-store';o.signal=a.signal;return fetch(url,o).then(function(r){if(!r.ok){throw Error('http '+r.status);}return r.json();}).then(function(d){clearTimeout(t);return d;},function(e){clearTimeout(t);throw e;});}
+function online(ok){off=!ok;document.body.classList.toggle('off',!ok);el('pill').className='pl '+(ok?'live':'off');set('pillText',ok?'Live':'Offline');updControls(lastP,lastR);}
+function agoText(){if(!tOk){set('ago','Waiting for data');return;}var s=M.round((Date.now()-tOk)/1000);set('ago',s<1?'Updated just now':'Updated '+s+' s ago');}
+function uptime(t){if(!N(t)){return '--';}var d=M.floor(t/86400),h=M.floor(t%86400/3600),m=M.floor(t%3600/60);return d>0?d+'d '+h+'h '+m+'m':h>0?h+'h '+m+'m':m>0?m+'m':M.floor(t%60)+'s';}
+function signal(r){var n=r>=-60?4:r>=-70?3:r>=-80?2:r>=-95?1:0,bs=el('sig').children,i;for(i=0;i<bs.length;i++){bs[i].setAttribute('opacity',i<n?1:.25);}}
+function tickAt(id,p){var e=el(id);if(p==null){e.style.display='none';return;}e.style.display='';var a=((M.max(0,M.min(100,p))*3.6-90)*M.PI)/180,c=M.cos(a),s=M.sin(a);e.setAttribute('x1',M.round(65+52*c));e.setAttribute('y1',M.round(65+52*s));e.setAttribute('x2',M.round(65+58*c));e.setAttribute('y2',M.round(65+58*s));}
+var IC={ok:'<circle cx="12" cy="12" r="9"/><path d="M8 12.4l2.7 2.7L16 9.5"/>',wn:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/>',al:'<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16h.01"/>'};
+function banner(r,s){var l=[],tx=[],i,lv='',ti='Reading the garden';if(s){if(!r.soil_ok){l.push(['al','Soil sensor not answering']);}else if(N(r.soil)&&r.soil<s.soil_dry){l.push(['wn','Soil is dry']);}if(r.tank_empty){l.push(['al','Water tank is empty']);}if(!r.dht_ok){l.push(['al','Temperature sensor not answering']);}else{if(N(r.temperature)&&(r.temperature<s.temp_min||r.temperature>s.temp_max)){l.push(['wn','Temperature outside '+num(s.temp_min)+' to '+num(s.temp_max)+' C']);}if(N(r.humidity)&&(r.humidity<s.hum_min||r.humidity>s.hum_max)){l.push(['wn','Air humidity outside '+num(s.hum_min)+' to '+num(s.hum_max)+' %']);}}if((r.pump.blocked_remaining_s||0)>0){l.push(['wn','Pump paused after a safety stop']);}for(i=0;i<l.length;i++){if(l[i][0]=='al'){lv='al';break;}}if(!lv){lv=l.length?'wn':'ok';}ti=lv=='al'?'Alert':lv=='wn'?'Needs attention':'All good';}el('banner').style.setProperty('--bc',lv?'var(--'+lv+')':'var(--mu)');el('bIcon').innerHTML=lv?'<svg viewBox="0 0 24 24">'+IC[lv]+'</svg>':'';set('bTitle',ti);for(i=0;i<l.length;i++){tx.push(l[i][1]);}set('bReasons',tx.join(' | '));}
+function soil(r,s){var ok=!!r.soil_ok&&N(r.soil),v=ok?r.soil:null;var dr=s&&N(s.soil_dry)?s.soil_dry:null,we=s&&N(s.soil_wet)?s.soil_wet:null;var g=el('soilRing'),val=el('soilVal');if(v==null){val.textContent='--';g.style.strokeDashoffset=C;}else{var p=clamp(v);g.style.strokeDashoffset=M.round(C*(1-p/100));val.textContent=M.round(p)+'%';}var st=v==null?'mu':(dr!=null&&v<dr?'wn':'ok');g.style.stroke='var(--'+st+')';val.style.color=st=='ok'?'':'var(--'+st+')';set('dryVal',num(dr));set('wetVal',num(we));tickAt('dryTick',dr);tickAt('wetTick',we);}
+function tank(r){var e=r.tank_empty,w=el('tankWater'),t=el('tankText');w.style.transform='translateY('+(e?48:8)+'px)';el('tankBody').classList.toggle('emp',e);t.textContent=e?'Tank empty':'Water available';t.style.color=e?'var(--al)':'var(--ok)';}
+function metric(p,v,mn,mx){set(p+'Val',num(v,1));set(p+'Min',num(mn));set(p+'Max',num(mx));var pc=v==null||mn==null||mx==null||mx<=mn?0:M.max(0,M.min(100,((v-mn)/(mx-mn))*100));var ok=v!=null&&mn!=null&&mx!=null&&mx>mn&&v>=mn&&v<=mx,st=v==null?'mu':(ok?'ok':'wn');var b=el(p+'Bar');b.style.width=M.round(pc)+'%';b.style.background='var(--'+st+')';el(p+'Val').style.color=st=='ok'?'':'var(--'+st+')';}
+function pump(p){if(!p){return;}lastP=p;var run=!!p.running,w=M.round(p.blocked_remaining_s||0),rem=M.round(p.manual_remaining_s||0),st='',ti='Idle';if(run){st='ok';ti='Running';}else if(w>0){st='wn';ti='Paused '+w+' s';}el('pumpDot').className='pd'+(run?' run':w>0?' wait':'');var e=el('pumpTxt');e.textContent=ti;e.style.color=st?'var(--'+st+')':'';var man=p.mode=='manual';set('pumpMode',man?'Manual':'Auto');set('pumpReason',p.reason?p.reason:'--');el('modeSeg').className='seg'+(man?' man':'');el('modeAuto').setAttribute('aria-pressed',man?'false':'true');el('modeManual').setAttribute('aria-pressed',man?'true':'false');el('pumpHint').hidden=!man;var manual=run&&man&&rem>0,note='',nc='';if(manual){if(!tracking){tracking=true;pumpLen=rem;}note='Watering, '+rem+' s left';nc='ok';}else if(run){tracking=false;note='Watering (automatic)';nc='ok';}else if(w>0){tracking=false;note='Paused, '+w+' s left';nc='wn';}else{tracking=false;}var ne=el('pumpNote');ne.hidden=!note;ne.textContent=note;ne.style.color=nc?'var(--'+nc+')':'';var pe=el('pumpProg');if(manual){var pc=M.max(0,M.min(100,((pumpLen-rem)/(pumpLen||1))*100));el('pumpBar').style.width=pc+'%';pe.hidden=false;}else{pe.hidden=true;el('pumpBar').style.width='0%';}updControls(p,lastR);}
+function updControls(p,r){p=p||lastP;var empty=!!(r&&r.tank_empty),run=!!(p&&p.running),lock=busy||off;var why=empty?'Tank is empty':off?'Dashboard offline':'';el('modeAuto').disabled=busy;el('modeManual').disabled=busy;var bs=el('pumpPresets').children,i,b,d;for(i=0;i<bs.length;i++){b=bs[i];d=lock||empty;b.disabled=d;b.title=d?why:'';}el('pumpStop').disabled=lock||!run;}
+function buildPresets(s){if(!s||!N(s.max_pump_s)){return;}var max=M.round(s.max_pump_s),all=[5,10,20,30],out=[],h='',i;if(maxBuilt==max){return;}maxBuilt=max;for(i=0;i<all.length;i++){if(all[i]<=max){out.push(all[i]);}}if(out.indexOf(max)<0){out.push(max);}for(i=0;i<out.length;i++){h+='<button class="bt pr" data-act=run data-run='+out[i]+'>'+out[i]+' s</button>';}el('pumpPresets').innerHTML=h;updControls(lastP,lastR);}
 function toast(t,k){var e=el('toast');e.textContent=t;e.className='tst on'+(k?' '+k:'');clearTimeout(tT);tT=setTimeout(function(){e.className='tst'+(k?' '+k:'');},4000);}
 function done(b){busy=false;if(b&&b.dataset.lb!=null){b.textContent=b.dataset.lb;delete b.dataset.lb;}updControls(lastP,lastR);}
-function postPump(b,btn){
- if(busy){return;}
- busy=true;
- if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}
- updControls(lastP,lastR);
- fetch('/api/pump',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
- .then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});})
- .then(function(r){
-  done(btn);
-  if(r.ok&&r.data&&typeof r.data.running=='boolean'){
-   pump(r.data);
-   if(r.data.running&&r.data.mode=='manual'){tracking=true;pumpLen=r.data.manual_remaining_s||pumpLen;}
-   toast(b.indexOf('mode=')==0?(b=='mode=manual'?'Manual mode':'Auto mode'):b.indexOf('run=')==0?('Watering for '+b.slice(4)+' s'):'Stopped','ok');
-   pollNow();
-  }else{toast(r.data&&r.data.error?r.data.error:'Action failed','al');}
- },function(){done(btn);toast('Could not reach the garden','al');});
-}
-function pumpClick(e){
- var t=e.target&&e.target.closest?e.target.closest('[data-act]'):null;
- if(!t||t.disabled||busy){return;}
- var a=t.getAttribute('data-act'),b='';
- if(a=='mode'){b='mode='+t.getAttribute('data-mode');}
- else if(a=='run'){b='run='+t.getAttribute('data-run');}
- else if(a=='stop'){b='stop=1';}
- else{return;}
- postPump(b,t);
-}
-function render(r,s){
- set('ipText',r.ip?r.ip:'--');
- banner(r,s);soil(r,s);tank(r);
- metric('temp',r.dht_ok&&N(r.temperature)?r.temperature:null,s?s.temp_min:null,s?s.temp_max:null);
- metric('hum',r.dht_ok&&N(r.humidity)?r.humidity:null,s?s.hum_min:null,s?s.hum_max:null);
- set('lightVal',num(r.light));
- el('lightBar').style.width=clamp(r.light)+'%';
- pump(r.pump);
- set('uptime',uptime(r.uptime_s));
- set('rssi',N(r.wifi_rssi)?r.wifi_rssi+' dBm':'--');
- signal(r.wifi_rssi);
- set('fIp',r.ip?r.ip:'--');
- set('mem','Memory '+kb(r.heap_free)+' free, low '+kb(r.heap_min));
-}
-function poll(){
- fetchJson('/api/readings').then(function(r){
-  lastR=r;tOk=Date.now();online(true);render(r,cfg);
- },function(){online(false);}).catch(function(){}).then(function(){clearTimeout(pollT);pollT=setTimeout(poll,3000);});
-}
+function postPump(b,btn){if(busy){return;}busy=true;if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}updControls(lastP,lastR);fetch('/api/pump',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b}).then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});}).then(function(r){done(btn);if(r.ok&&r.data&&typeof r.data.running=='boolean'){pump(r.data);if(r.data.running&&r.data.mode=='manual'){tracking=true;pumpLen=r.data.manual_remaining_s||pumpLen;}toast(b.indexOf('mode=')==0?(b=='mode=manual'?'Manual mode':'Auto mode'):b.indexOf('run=')==0?('Watering for '+b.slice(4)+' s'):'Stopped','ok');pollNow();}else{toast(r.data&&r.data.error?r.data.error:'Action failed','al');}},function(){done(btn);toast('Could not reach the garden','al');});}
+function pumpClick(e){var t=e.target&&e.target.closest?e.target.closest('[data-act]'):null;if(!t||t.disabled||busy){return;}var a=t.getAttribute('data-act'),b='';if(a=='mode'){b='mode='+t.getAttribute('data-mode');}else if(a=='run'){b='run='+t.getAttribute('data-run');}else if(a=='stop'){b='stop=1';}else{return;}postPump(b,t);}
+function render(r,s){set('ipText',r.ip?r.ip:'--');banner(r,s);soil(r,s);tank(r);metric('temp',r.dht_ok&&N(r.temperature)?r.temperature:null,s?s.temp_min:null,s?s.temp_max:null);metric('hum',r.dht_ok&&N(r.humidity)?r.humidity:null,s?s.hum_min:null,s?s.hum_max:null);var lv=N(r.light)?r.light:null;set('lightVal',num(r.light));el('lightBar').style.width=clamp(r.light)+'%';set('lightWord',lv==null?'--':lv<25?'Dark':lv<60?'Dim':'Bright');pump(r.pump);set('uptime',uptime(r.uptime_s));set('rssi',N(r.wifi_rssi)?r.wifi_rssi+' dBm':'--');signal(r.wifi_rssi);set('fIp',r.ip?r.ip:'--');set('mem','Memory '+kb(r.heap_free)+' free, low '+kb(r.heap_min));}
+function poll(){fetchJson('/api/readings').then(function(r){lastR=r;tOk=Date.now();online(true);render(r,cfg);},function(){online(false);}).catch(function(){}).then(function(){clearTimeout(pollT);pollT=setTimeout(poll,3000);});}
 function pollNow(){clearTimeout(pollT);poll();}
-/* Charts: the last three hours of history, drawn with Chart.js */
 var hist={interval_s:60,count:0},chT=null,chS=null,noteShown=false;
 function pad2(v){return v<10?'0'+v:String(v);}
 function rgba(c,a){var s=String(c||'').replace('#','');if(s.length==3){s=s.charAt(0)+s.charAt(0)+s.charAt(1)+s.charAt(1)+s.charAt(2)+s.charAt(2);}if(s.length!=6){return c;}var n=parseInt(s,16);return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';}
 function cssv(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
 function theme(){return {tx:cssv('--tx'),mu:cssv('--mu'),ln:cssv('--ln'),cd:cssv('--cd'),ok:cssv('--ok'),c1:cssv('--c1'),c2:cssv('--c2'),c3:cssv('--c3'),c4:cssv('--c4')};}
 function calm(){return !!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches);}
-function histLabels(){
- var n=N(hist.count)?hist.count:0,iv=N(hist.interval_s)?hist.interval_s:60,now=Date.now(),out=[],i,d;
- for(i=0;i<n;i++){d=new Date(now-(n-1-i)*iv*1000);out.push(pad2(d.getHours())+':'+pad2(d.getMinutes()));}
- return out;
-}
+function histLabels(){var n=N(hist.count)?hist.count:0,iv=N(hist.interval_s)?hist.interval_s:60,now=Date.now(),out=[],i,d;for(i=0;i<n;i++){d=new Date(now-(n-1-i)*iv*1000);out.push(pad2(d.getHours())+':'+pad2(d.getMinutes()));}return out;}
 function vals(a){var o=[],i;if(!Array.isArray(a)){return o;}for(i=0;i<a.length;i++){o.push(N(a[i])?a[i]:null);}return o;}
 function pumpVals(a){var o=[],i;if(!Array.isArray(a)){return o;}for(i=0;i<a.length;i++){o.push(a[i]?100:null);}return o;}
 function flat(v,n){var o=[],i;for(i=0;i<n;i++){o.push(v);}return o;}
-function axes(t,right,fixed){
- var x={grid:{color:t.ln,drawTicks:false},border:{color:t.ln},ticks:{color:t.mu,maxTicksLimit:6,autoSkip:true,maxRotation:0,font:{size:11}}};
- var y={position:'left',grid:{color:t.ln,drawTicks:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,font:{size:11}}};
- var out={x:x,y:y};
- if(fixed){y.min=0;y.max=100;}
- if(right){out.y1={position:'right',grid:{drawOnChartArea:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,font:{size:11}}};}
- return out;
-}
-function chartOptions(t,scales){
- return {
-  responsive:true,maintainAspectRatio:false,animation:calm()?false:{duration:450},
-  interaction:{mode:'index',intersect:false},
-  plugins:{
-   legend:{position:'top',align:'start',labels:{color:t.mu,usePointStyle:true,pointStyle:'circle',boxWidth:8,boxHeight:8,padding:12,font:{size:11}}},
-   tooltip:{backgroundColor:t.cd,titleColor:t.mu,bodyColor:t.tx,borderColor:t.ln,borderWidth:1,padding:9,cornerRadius:9,usePointStyle:true,boxWidth:8,boxHeight:8,
-    callbacks:{label:function(c){
-     var d=c.dataset,v=c.parsed.y;
-     if(d.pump){return 'Pump '+(N(v)&&v>0?'running':'stopped');}
-     return d.label+': '+(N(v)?(M.round(v*10)/10)+(d.unit||''):'--');
-    }}}
-  },
-  scales:scales
- };
-}
+function tfmt(dec){return function(v){return dec?(M.round(v*10)/10).toFixed(1):M.round(v)+'%';};}
+function axes(t,right,fixed,l,r){var x={grid:{color:t.ln,drawTicks:false},border:{color:t.ln},ticks:{color:t.mu,maxTicksLimit:6,autoSkip:true,maxRotation:0,padding:8,font:{size:11}}};var y={position:'left',grace:'8%',grid:{color:t.ln,drawTicks:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,padding:6,font:{size:11},callback:l}};var o={x:x,y:y};if(fixed){y.min=0;y.max=100;}if(right){o.y1={position:'right',grace:'8%',grid:{drawOnChartArea:false},border:{display:false},ticks:{color:t.mu,maxTicksLimit:6,padding:6,font:{size:11},callback:r}};}return o;}
+function chartOptions(t,scales){return {responsive:true,maintainAspectRatio:false,animation:calm()?false:{duration:450},interaction:{mode:'index',intersect:false},layout:{padding:{top:4,right:8,bottom:4,left:4}},plugins:{legend:{position:'top',align:'start',labels:{color:t.mu,usePointStyle:true,pointStyle:'circle',boxWidth:9,boxHeight:9,padding:10,font:{size:11}}},tooltip:{backgroundColor:t.cd,titleColor:t.mu,bodyColor:t.tx,borderColor:t.ln,borderWidth:1,padding:9,cornerRadius:9,usePointStyle:true,boxWidth:8,boxHeight:8,callbacks:{label:function(c){var d=c.dataset,v=c.parsed.y;if(d.pump){return 'Pump '+(N(v)&&v>0?'running':'stopped');}return d.label+': '+(N(v)?(M.round(v*10)/10)+(d.unit||''):'--');}}}},scales:scales};}
 function emptyState(on){el('tempEmpty').hidden=!on;el('soilEmpty').hidden=!on;}
-function chartNote(){
- el('tempEmpty').hidden=true;el('soilEmpty').hidden=true;
- if(noteShown){return;}
- noteShown=true;el('chartNote').hidden=false;
-}
-function drawCharts(){
- if(!chT||!chS){return;}
- var L=histLabels(),n=L.length,dry=cfg&&N(cfg.soil_dry)?cfg.soil_dry:null,wet=cfg&&N(cfg.soil_wet)?cfg.soil_wet:null;
- chT.data.labels=L;
- chT.data.datasets[0].data=vals(hist.temperature);
- chT.data.datasets[1].data=vals(hist.humidity);
- chT.update('none');
- var d=chS.data.datasets;
- chS.data.labels=L;
- d[0].data=vals(hist.soil);
- d[1].data=vals(hist.light);
- d[2].data=dry==null?[]:flat(dry,n);
- d[3].data=wet==null?[]:flat(wet,n);
- d[4].data=pumpVals(hist.pump);
- chS.update('none');
- emptyState(n===0);
-}
-function paint(c,t){
- c.options.plugins.legend.labels.color=t.mu;
- c.options.plugins.tooltip.backgroundColor=t.cd;
- c.options.plugins.tooltip.titleColor=t.mu;
- c.options.plugins.tooltip.bodyColor=t.tx;
- c.options.plugins.tooltip.borderColor=t.ln;
- var k,s;
- for(k in c.options.scales){
-  if(!Object.prototype.hasOwnProperty.call(c.options.scales,k)){continue;}
-  s=c.options.scales[k];
-  if(s.ticks){s.ticks.color=t.mu;}
-  if(s.grid&&s.grid.color){s.grid.color=t.ln;}
-  if(s.border&&s.border.color){s.border.color=t.ln;}
- }
-}
-function themeCharts(){
- if(!chT||!chS){return;}
- var t=theme(),d1=chT.data.datasets,d2=chS.data.datasets;
- d1[0].borderColor=t.c1;d1[0].backgroundColor=t.c1;d1[0].pointHoverBackgroundColor=t.c1;
- d1[1].borderColor=t.c2;d1[1].backgroundColor=rgba(t.c2,.12);d1[1].pointHoverBackgroundColor=t.c2;
- d2[0].borderColor=t.c3;d2[0].backgroundColor=rgba(t.c3,.15);d2[0].pointHoverBackgroundColor=t.c3;
- d2[1].borderColor=t.c4;d2[1].backgroundColor=t.c4;d2[1].pointHoverBackgroundColor=t.c4;
- d2[2].borderColor=t.mu;d2[3].borderColor=t.mu;d2[4].backgroundColor=rgba(t.ok,.16);
- paint(chT,t);paint(chS,t);
- chT.update('none');chS.update('none');
-}
-function chartsInit(){
- var t=theme();
- chT=new Chart(el('chartTemp'),{type:'line',data:{labels:[],datasets:[
-  {label:'Temperature',unit:'°C',data:[],borderColor:t.c1,backgroundColor:t.c1,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c1,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},
-  {label:'Air humidity',unit:'%',data:[],borderColor:t.c2,backgroundColor:rgba(t.c2,.12),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c2,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y1',order:1}
- ]},options:chartOptions(t,axes(t,true,false))});
- chS=new Chart(el('chartSoil'),{type:'line',data:{labels:[],datasets:[
-  {label:'Soil moisture',unit:'%',data:[],borderColor:t.c3,backgroundColor:rgba(t.c3,.15),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c3,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y',order:1},
-  {label:'Light',unit:'%',data:[],borderColor:t.c4,backgroundColor:t.c4,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c4,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},
-  {label:'Dry limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},
-  {label:'Wet limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},
-  {label:'Pump running',type:'bar',pump:true,data:[],backgroundColor:rgba(t.ok,.16),borderColor:'transparent',borderWidth:0,barPercentage:1,categoryPercentage:1,yAxisID:'y',order:2}
- ]},options:chartOptions(t,axes(t,false,true))});
- drawCharts();
-}
-function pollHistory(){
- fetchJson('/api/history').then(function(d){hist=d;drawCharts();},function(){}).catch(function(){}).then(function(){setTimeout(pollHistory,60000);});
-}
-function loadCfg(){
- fetchJson('/api/settings').then(function(s){cfg=s;buildPresets(s);sSync();if(lastR){render(lastR,cfg);}drawCharts();},function(){});
-}
-/* Settings panel: fill, validate and post the thresholds. */
+function chartNote(){el('tempEmpty').hidden=true;el('soilEmpty').hidden=true;if(noteShown){return;}noteShown=true;el('chartNote').hidden=false;}
+function drawCharts(){if(!chT||!chS){return;}var L=histLabels(),n=L.length,dry=cfg&&N(cfg.soil_dry)?cfg.soil_dry:null,wet=cfg&&N(cfg.soil_wet)?cfg.soil_wet:null;chT.data.labels=L;chT.data.datasets[0].data=vals(hist.temperature);chT.data.datasets[1].data=vals(hist.humidity);chT.update('none');var d=chS.data.datasets;chS.data.labels=L;d[0].data=vals(hist.soil);d[1].data=vals(hist.light);d[2].data=dry==null?[]:flat(dry,n);d[3].data=wet==null?[]:flat(wet,n);d[4].data=pumpVals(hist.pump);chS.update('none');emptyState(n===0);}
+function paint(c,t){c.options.plugins.legend.labels.color=t.mu;c.options.plugins.tooltip.backgroundColor=t.cd;c.options.plugins.tooltip.titleColor=t.mu;c.options.plugins.tooltip.bodyColor=t.tx;c.options.plugins.tooltip.borderColor=t.ln;var k,s;for(k in c.options.scales){s=c.options.scales[k];if(s.ticks){s.ticks.color=t.mu;}if(s.grid&&s.grid.color){s.grid.color=t.ln;}if(s.border&&s.border.color){s.border.color=t.ln;}}}
+function themeCharts(){if(!chT||!chS){return;}var t=theme(),d1=chT.data.datasets,d2=chS.data.datasets;d1[0].borderColor=t.c1;d1[0].backgroundColor=t.c1;d1[0].pointHoverBackgroundColor=t.c1;d1[1].borderColor=t.c2;d1[1].backgroundColor=rgba(t.c2,.12);d1[1].pointHoverBackgroundColor=t.c2;d2[0].borderColor=t.c3;d2[0].backgroundColor=rgba(t.c3,.15);d2[0].pointHoverBackgroundColor=t.c3;d2[1].borderColor=t.c4;d2[1].backgroundColor=t.c4;d2[1].pointHoverBackgroundColor=t.c4;d2[2].borderColor=t.mu;d2[3].borderColor=t.mu;d2[4].backgroundColor=rgba(t.ok,.16);d2[4].borderColor=t.ok;paint(chT,t);paint(chS,t);chT.update('none');chS.update('none');}
+function chartsInit(){var t=theme();chT=new Chart(el('chartTemp'),{type:'line',data:{labels:[],datasets:[{label:'Temperature',unit:'°C',data:[],borderColor:t.c1,backgroundColor:t.c1,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c1,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},{label:'Air humidity',unit:'%',data:[],borderColor:t.c2,backgroundColor:rgba(t.c2,.12),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c2,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y1',order:1}]},options:chartOptions(t,axes(t,true,false,tfmt(true),tfmt(false)))});chS=new Chart(el('chartSoil'),{type:'line',data:{labels:[],datasets:[{label:'Soil moisture',unit:'%',data:[],borderColor:t.c3,backgroundColor:rgba(t.c3,.15),tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c3,borderWidth:2,spanGaps:false,fill:'start',yAxisID:'y',order:1},{label:'Light',unit:'%',data:[],borderColor:t.c4,backgroundColor:t.c4,tension:.35,pointRadius:0,pointHoverRadius:3,pointHoverBackgroundColor:t.c4,borderWidth:2,spanGaps:false,fill:false,yAxisID:'y',order:1},{label:'Dry limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},{label:'Wet limit',unit:'%',data:[],borderColor:t.mu,borderDash:[5,4],borderWidth:1.2,pointRadius:0,pointHitRadius:0,spanGaps:true,fill:false,yAxisID:'y',order:1},{label:'Pump running',type:'bar',pump:true,data:[],backgroundColor:rgba(t.ok,.16),borderColor:t.ok,borderWidth:1,barPercentage:1,categoryPercentage:1,yAxisID:'y',order:2}]},options:chartOptions(t,axes(t,false,true,tfmt(false)))});drawCharts();}
+function pollHistory(){fetchJson('/api/history').then(function(d){hist=d;drawCharts();},function(){}).catch(function(){}).then(function(){setTimeout(pollHistory,60000);});}
+function loadCfg(){fetchJson('/api/settings').then(function(s){cfg=s;buildPresets(s);sSync();if(lastR){render(lastR,cfg);}drawCharts();},function(){});}
 var SF=[['sSoilDry','soil_dry'],['sSoilWet','soil_wet'],['sMaxPump','max_pump_s'],['sPause','pause_s'],['sTempMin','temp_min'],['sTempMax','temp_max'],['sHumMin','hum_min'],['sHumMax','hum_max'],['sDaily','daily_summary'],['sHour','summary_hour']];
 var sInit=false,sBusy=false,sNo='Could not reach the garden.',hi,ho='';
 for(hi=0;hi<24;hi++){ho+='<option value="'+hi+'">'+pad2(hi)+':00</option>';}
@@ -645,102 +77,26 @@ el('sHour').innerHTML=ho;
 function sNum(id){return parseFloat(el(id).value);}
 function sBad(v,mn,mx){return !isFinite(v)||v<mn||v>mx;}
 function sEdits(){var i;for(i=0;i<SF.length;i++){if(el(SF[i][0]).dataset.ed){return true;}}return false;}
-function sCheck(){
- var ok=true,we='',ae='';
- var dr=sNum('sSoilDry'),wt=sNum('sSoilWet'),pm=sNum('sMaxPump'),ps=sNum('sPause');
- var tm=sNum('sTempMin'),tx=sNum('sTempMax'),hm=sNum('sHumMin'),hx=sNum('sHumMax');
- if(sBad(dr,0,100)||sBad(wt,0,100)){we='Soil limits must be 0 to 100.';ok=false;}
- else if(dr+5>wt){we='The dry limit must be 5 below the wet limit.';ok=false;}
- else if(sBad(pm,5,120)){we='Maximum pump run must be 5 to 120 seconds.';ok=false;}
- else if(sBad(ps,10,600)){we='Pause must be 10 to 600 seconds.';ok=false;}
- if(sBad(tm,-10,60)||sBad(tx,-10,60)){ae='Temperature limits must be -10 to 60 C.';ok=false;}
- else if(tm+2>tx){ae='The minimum must be 2 below the maximum.';ok=false;}
- else if(sBad(hm,0,100)||sBad(hx,0,100)){ae='Humidity limits must be 0 to 100.';ok=false;}
- else if(hm+5>hx){ae='The minimum must be 5 below the maximum.';ok=false;}
- return {ok:ok,we:we,ae:ae};
-}
-function sShow(){
- var v=sCheck(),show=sEdits(),e=el('errWater');
- e.textContent=v.we;e.hidden=!v.we||!show;
- e=el('errAlerts');e.textContent=v.ae;e.hidden=!v.ae||!show;
- return v.ok;
-}
+function sCheck(){var ok=true,we='',ae='';var dr=sNum('sSoilDry'),wt=sNum('sSoilWet'),pm=sNum('sMaxPump'),ps=sNum('sPause');var tm=sNum('sTempMin'),tx=sNum('sTempMax'),hm=sNum('sHumMin'),hx=sNum('sHumMax');if(sBad(dr,0,100)||sBad(wt,0,100)){we='Soil limits must be 0 to 100.';ok=false;}else if(dr+5>wt){we='The dry limit must be 5 below the wet limit.';ok=false;}else if(sBad(pm,5,120)){we='Maximum pump run must be 5 to 120 seconds.';ok=false;}else if(sBad(ps,10,600)){we='Pause must be 10 to 600 seconds.';ok=false;}if(sBad(tm,-10,60)||sBad(tx,-10,60)){ae='Temperature limits must be -10 to 60 C.';ok=false;}else if(tm+2>tx){ae='The minimum must be 2 below the maximum.';ok=false;}else if(sBad(hm,0,100)||sBad(hx,0,100)){ae='Humidity limits must be 0 to 100.';ok=false;}else if(hm+5>hx){ae='The minimum must be 5 below the maximum.';ok=false;}return {ok:ok,we:we,ae:ae};}
+function sShow(){var v=sCheck(),show=sEdits(),e=el('errWater');e.textContent=v.we;e.hidden=!v.we||!show;e=el('errAlerts');e.textContent=v.ae;e.hidden=!v.ae||!show;return v.ok;}
 function sMsg(t){var e=el('setErr');e.textContent=t;e.hidden=!t;}
 function sUpd(){el('setSave').disabled=sBusy||!sShow();el('setReset').disabled=sBusy;el('setDirty').hidden=!sEdits();}
-function sFill(force){
- if(!cfg){return;}
- var i,id,k,e,v;
- for(i=0;i<SF.length;i++){
-  id=SF[i][0];k=SF[i][1];e=el(id);
-  if(!force&&e.dataset.ed){continue;}
-  delete e.dataset.ed;
-  v=cfg[k];
-  if(e.type=='checkbox'){e.checked=!!v;}else{e.value=N(v)?String(v):'';}
- }
- sUpd();
-}
+function sFill(force){if(!cfg){return;}var i,id,k,e,v;for(i=0;i<SF.length;i++){id=SF[i][0];k=SF[i][1];e=el(id);if(!force&&e.dataset.ed){continue;}delete e.dataset.ed;v=cfg[k];if(e.type=='checkbox'){e.checked=!!v;}else{e.value=N(v)?String(v):'';}}sUpd();}
 function sSync(){if(!el('setPanel').open){return;}sFill(!sInit);sUpd();if(cfg){sInit=true;}}
-function sEdit(ev){
- var e=ev.target,i;
- if(!e||!e.id){return;}
- for(i=0;i<SF.length;i++){if(SF[i][0]==e.id){e.dataset.ed='1';sUpd();return;}}
-}
-function sBody(){
- var p=new URLSearchParams(),i,e;
- for(i=0;i<SF.length;i++){e=el(SF[i][0]);p.append(SF[i][1],e.type=='checkbox'?(e.checked?'1':'0'):e.value);}
- return p;
-}
-function sPost(body,btn,okMsg){
- if(sBusy){return;}
- sBusy=true;sMsg('');sUpd();
- if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}
- fetch('/api/settings',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()})
- .then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});})
- .then(function(r){
-  sBusy=false;
-  if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}
-  if(r.ok&&r.data&&N(r.data.soil_dry)){
-   cfg=r.data;buildPresets(cfg);sInit=true;sFill(true);
-   if(lastR){render(lastR,cfg);}
-   drawCharts();
-   toast(okMsg,'ok');
-  }else{
-   var m=r.data&&r.data.error?r.data.error:'Could not save the settings.';
-   sMsg(m);toast(m,'al');
-  }
-  sUpd();
- },function(){
-  sBusy=false;
-  if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}
-  sMsg(sNo);toast(sNo,'al');
-  sUpd();
- });
-}
+function sEdit(ev){var e=ev.target,i;if(!e||!e.id){return;}for(i=0;i<SF.length;i++){if(SF[i][0]==e.id){e.dataset.ed='1';sUpd();return;}}}
+function sBody(){var p=new URLSearchParams(),i,e;for(i=0;i<SF.length;i++){e=el(SF[i][0]);p.append(SF[i][1],e.type=='checkbox'?(e.checked?'1':'0'):e.value);}return p;}
+function sPost(body,btn,okMsg){if(sBusy){return;}sBusy=true;sMsg('');sUpd();if(btn){btn.dataset.lb=btn.textContent;btn.textContent='...';}fetch('/api/settings',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.text().then(function(t){var d=null;try{d=JSON.parse(t);}catch(e){d=null;}return {ok:r.ok,data:d};});}).then(function(r){sBusy=false;if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}if(r.ok&&r.data&&N(r.data.soil_dry)){cfg=r.data;buildPresets(cfg);sInit=true;sFill(true);if(lastR){render(lastR,cfg);}drawCharts();toast(okMsg,'ok');}else{var m=r.data&&r.data.error?r.data.error:'Could not save the settings.';sMsg(m);toast(m,'al');}sUpd();},function(){sBusy=false;if(btn&&btn.dataset.lb!=null){btn.textContent=btn.dataset.lb;delete btn.dataset.lb;}sMsg(sNo);toast(sNo,'al');sUpd();});}
 el('setPanel').addEventListener('toggle',sSync);
 el('setForm').addEventListener('input',sEdit);
-el('setForm').addEventListener('submit',function(ev){
- ev.preventDefault();
- if(sBusy||!sShow()){return;}
- sMsg('');
- sPost(sBody(),el('setSave'),'Settings saved');
-});
-el('setReset').addEventListener('click',function(){
- if(sBusy||!confirm('Restore the default settings?')){return;}
- sMsg('');
- sPost(new URLSearchParams({reset:'1'}),el('setReset'),'Settings restored');
-});
+el('setForm').addEventListener('submit',function(ev){ev.preventDefault();if(sBusy||!sShow()){return;}sMsg('');sPost(sBody(),el('setSave'),'Settings saved');});
+el('setReset').addEventListener('click',function(){if(sBusy||!confirm('Restore the default settings?')){return;}sMsg('');sPost(new URLSearchParams({reset:'1'}),el('setReset'),'Settings restored');});
 el('pumpControls').addEventListener('click',pumpClick);
 buildPresets({max_pump_s:30});
 loadCfg();setInterval(loadCfg,30000);setInterval(agoText,1000);poll();pollHistory();
-window.addEventListener('load',function(){
- if(window.__noChart||typeof Chart==='undefined'){chartNote();return;}
- try{chartsInit();}catch(e){chartNote();}
-});
+window.addEventListener('load',function(){if(window.__noChart||typeof Chart==='undefined'){chartNote();return;}try{chartsInit();}catch(e){chartNote();}});
 var mqd=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
 if(mqd&&mqd.addEventListener){mqd.addEventListener('change',themeCharts);}
-</script>
-</body>
-</html>
+</script></body></html>
 )rawliteral";
 
 #endif
