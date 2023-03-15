@@ -1,0 +1,13 @@
+# Wokwi simulation of the smart garden (VS Code extension or wokwi-cli).
+# Build the firmware first, see the Simulation section of the README:
+#   arduino-cli compile --fqbn esp32:esp32:esp32 --build-property "compiler.cpp.extra_flags=-DWOKWI_SIMULATION" --output-dir build/wokwi firmware/esp32_smart_garden
+[wokwi]
+version = 1
+firmware = '../build/wokwi/esp32_smart_garden.ino.bin'
+elf = '../build/wokwi/esp32_smart_garden.ino.elf'
+
+# Needs the Wokwi Private Gateway (VS Code extension): the dashboard of the
+# simulated board is then available at http://localhost:8180
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"
