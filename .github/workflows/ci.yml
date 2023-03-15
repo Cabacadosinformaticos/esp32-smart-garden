@@ -1,0 +1,92 @@
+# Continuous integration: compiles the sketch for the ESP32 and checks the dashboard
+# and the JSON API contract with the mock server.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  firmware:
+    name: Compile the sketch
+    runs-on: ubuntu-latest
+    env:
+      FQBN: esp32:esp32:esp32
+      ESP32_CORE: 2.0.17
+      # The default partition scheme with OTA gives about 1.3 MB for the program.
+      # The build fails when the program uses more than this share of it.
+      MAX_FLASH_PERCENT: 90
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install arduino-cli
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install the ESP32 core and the libraries
+        shell: bash
+        run: |
+          arduino-cli config init
+          arduino-cli config set board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install "esp32:esp32@${ESP32_CORE}"
+          arduino-cli lib install "DHT sensor library" "Adafruit Unified Sensor" "UrlEncode"
+
+      - name: Create secrets.h from the example
+        run: cp firmware/esp32_smart_garden/secrets.example.h firmware/esp32_smart_garden/secrets.h
+
+      - name: Compile for the ESP32 DevKit
+        shell: bash
+        run: |
+          mkdir -p build
+          arduino-cli compile --fqbn "$FQBN" --output-dir build/esp32 firmware/esp32_smart_garden 2>&1 | tee build/compile.log
+
+      - name: Check the program size and the RAM usage
+        shell: bash
+        run: |
+          flash_line=$(grep -E "^Sketch uses" build/compile.log)
+          ram_line=$(grep -E "^Global variables use" build/compile.log)
+          echo "$flash_line"
+          echo "$ram_line"
+          percent=$(echo "$flash_line" | sed -E 's/.*\(([0-9]+)%\).*/\1/')
+          {
+            echo "### Resource budget (ESP32 DevKit, default partition scheme)"
+            echo ""
+            echo "- $flash_line"
+            echo "- $ram_line"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$percent" -gt "$MAX_FLASH_PERCENT" ]; then
+            echo "The program uses ${percent}% of the program storage, the limit is ${MAX_FLASH_PERCENT}%"
+            exit 1
+          fi
+
+      - name: Compile the simulator build used by Wokwi
+        shell: bash
+        run: |
+          arduino-cli compile --fqbn "$FQBN" \
+            --build-property "compiler.cpp.extra_flags=-DWOKWI_SIMULATION" \
+            --output-dir build/wokwi firmware/esp32_smart_garden
+
+      - name: Keep the simulator firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: wokwi-firmware
+          path: |
+            build/wokwi/esp32_smart_garden.ino.bin
+            build/wokwi/esp32_smart_garden.ino.elf
+
+  dashboard:
+    name: Check the dashboard and the API contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run the mock server checks
+        run: node tools/preview/check.js
