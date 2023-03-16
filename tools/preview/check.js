@@ -273,7 +273,7 @@ async function checkHistory(base) {
 async function checkSettings(base) {
   const defaults = await request(base, '/api/settings');
   const expected = {
-    soil_dry: 30, soil_wet: 70, temp_min: 18, temp_max: 26, hum_min: 50, hum_max: 70,
+    soil_dry: 30, soil_wet: 45, temp_min: 18, temp_max: 26, hum_min: 50, hum_max: 70,
     max_pump_s: 30, pause_s: 60, daily_summary: false, summary_hour: 20
   };
   let good = defaults.status === 200 && defaults.json !== null;

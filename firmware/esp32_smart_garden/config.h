@@ -44,7 +44,7 @@ const float soilVoltagePerPercent = 0.08 * 3.3 / 5.0; // volts per 1 % of soil h
 // These are only the default values, the runtime settings live in settings.h and
 // are loaded from flash, so the web page can change them without a new upload.
 const float defaultSoilDry = 30; // soil humidity (percent) below which the pump starts
-const float defaultSoilWet = 70; // soil humidity (percent) above which the pump stops
+const float defaultSoilWet = 45; // soil humidity (percent) above which the pump stops; the calibrated soil curve tops out near 51 %, so 70 % would never be reached
 const float defaultTempMin = 18; // degrees C below which the low temperature alert is sent
 const float defaultTempMax = 26; // degrees C above which the high temperature alert is sent
 const float defaultHumMin = 50; // air humidity (percent) below which the low air humidity alert is sent

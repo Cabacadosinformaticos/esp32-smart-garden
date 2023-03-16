@@ -38,7 +38,7 @@ function readDashboard() {
 function defaultSettings() {
   return {
     soilDry: 30,
-    soilWet: 70,
+    soilWet: 45,
     tempMin: 18,
     tempMax: 26,
     humMin: 50,
