@@ -15,9 +15,9 @@
 static float tempMin = 0;        // lowest valid temperature, only used while tempCount > 0
 static float tempMax = 0;        // highest valid temperature, only used while tempCount > 0
 static float tempSum = 0;        // sum of the valid temperatures, for the average
-static uint16_t tempCount = 0;   // number of samples with dhtValid
+static uint32_t tempCount = 0;   // number of samples with dhtValid
 static float soilSum = 0;        // sum of the valid soil humidity values
-static uint16_t soilCount = 0;   // number of samples with soilValid
+static uint32_t soilCount = 0;   // number of samples with soilValid
 static unsigned long pumpMillis = 0;  // time the pump ran, in milliseconds
 static unsigned long sampleCount = 0; // number of control cycles recorded
 static bool tankWasEmpty = false;     // true when the tank was empty at least once
