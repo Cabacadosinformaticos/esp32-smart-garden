@@ -11,7 +11,7 @@ The picture is the real dashboard page of the sketch, rendered by a browser agai
 ## Features
 
 - Measures air temperature and humidity (DHT11), light intensity, soil moisture and whether there is water in the tank.
-- Starts the pump when the soil is dry and stops it when the soil is wet enough. The limits are 30 % and 70 % by default and can be changed on the dashboard.
+- Starts the pump when the soil is dry and stops it when the soil is wet enough. The limits are 30 % and 45 % by default and can be changed on the dashboard.
 - Protects the pump: it stops when the tank is empty, when the soil sensor gives an invalid value and after a maximum run time (30 s by default), followed by a pause (60 s by default).
 - Live web dashboard at `http://smart-garden.local` (or the IP address): status cards with gauges and colours for ok, warning and alert, charts of the last 3 hours, pump state, uptime, Wi-Fi signal and free memory. The page updates itself every 3 seconds, there is no page reload. It follows the light or dark theme of the device and works on a phone.
 - Manual pump control from the dashboard: automatic or manual mode and timed runs of 5 to 30 seconds. The safety rules always apply (empty tank, maximum run time).
@@ -196,7 +196,7 @@ arduino-cli compile --fqbn esp32:esp32:esp32 --build-property "compiler.cpp.extr
 
 Then open the `wokwi` folder in VS Code with the Wokwi extension and start the simulation (`wokwi.toml` points to `build/wokwi`). With the Wokwi Private Gateway the dashboard is available at `http://localhost:8180`. On wokwi.com, create an ESP32 project, paste `diagram.json` and `libraries.txt`, upload the sketch files and add `#define WOKWI_SIMULATION` as the first line of `config.h`. The Serial monitor shows the readings and the pump actions.
 
-Notes: the soil sensor curve of the real sensor gives 0 to about 52 % with the 3.3 V range, so the soil potentiometer never reaches the 70 % wet limit; lower "soil wet" in the settings (for example to 45) to see the pump stop by itself. The pump starts when the potentiometer is turned below about two thirds of its travel (soil under 30 %). In the simulator the history takes a sample every 5 seconds instead of every minute.
+Notes: the soil sensor curve of the real sensor gives 0 to about 52 % with the 3.3 V range, so the default wet limit is 45 %; turning the soil potentiometer up past it makes the pump stop by itself. The pump starts when the potentiometer is turned below about two thirds of its travel (soil under 30 %). In the simulator the history takes a sample every 5 seconds instead of every minute.
 
 ## Resource budget
 
@@ -212,9 +212,9 @@ Measured with `arduino-cli compile` for `esp32:esp32:esp32` (filled from the out
 
 | | Value |
 | --- | --- |
-| Program storage | to be filled from the first CI run |
-| Global variables | to be filled from the first CI run |
-| Free heap with Wi-Fi and the dashboard open | to be filled from the footer of the dashboard |
+| Program storage | 1,034,053 bytes (78 % of the 1,310,720 byte app partition) |
+| Global variables | 53,168 bytes (16 % of 327,680), leaving 274,512 bytes for the heap and stacks |
+| Free heap at run time | shown live in the dashboard footer (current and minimum since boot) |
 
 ## Project structure
 

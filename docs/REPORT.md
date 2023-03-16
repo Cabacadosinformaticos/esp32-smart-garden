@@ -117,8 +117,8 @@ The ESP32 DevKit has about 520 KB of RAM, of which roughly 300 KB are free for t
 
 | Measure | Value |
 | --- | --- |
-| Program storage | to be filled from the first CI run |
-| Global variables | to be filled from the first CI run |
+| Program storage | 1,034,053 bytes (78 % of the 1,310,720 byte app partition) |
+| Global variables | 53,168 bytes (16 % of 327,680), leaving 274,512 bytes for the heap and stacks |
 | Free heap and lowest free heap while running | shown in the footer of the dashboard and in `/api/readings` (`heap_free`, `heap_min`) |
 
 ## 5. Implementation
@@ -141,7 +141,7 @@ A DHT11 reading that is not a number (`NaN`) means the sensor did not answer. Th
 | Manual stop | The chosen time ends, the tank becomes empty, the maximum run time is reached or the user presses stop |
 | Pause after an automatic safety stop | Pause time (60 s by default), the automatic mode cannot start the pump during it |
 
-The defaults are 30 % and 70 % for the soil limits, 30 s for the maximum run time and 60 s for the pause. In manual mode the automatic start is off, so the pump only runs when the owner asks for it. After a safety stop an alert asks the owner to check the soil sensor and the tank.
+The defaults are 30 % and 45 % for the soil limits (the calibrated soil curve tops out near 51 %), 30 s for the maximum run time and 60 s for the pause. In manual mode the automatic start is off, so the pump only runs when the owner asks for it. After a safety stop an alert asks the owner to check the soil sensor and the tank.
 
 ### 5.3 Settings
 
