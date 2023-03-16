@@ -171,7 +171,7 @@ static void handleReadings() {
 
   // Adds the pump object and the closing brace
   int written = formatPumpJson(buffer + length, sizeof(buffer) - (size_t)length);
-  if (written < 0 || (size_t)written >= sizeof(buffer) - (size_t)length) {
+  if (written < 0 || (size_t)written + 2 > sizeof(buffer) - (size_t)length) { // Needs room for the closing brace and the terminator
     length = sizeof(buffer) - 2;
   } else {
     length += written;
@@ -355,7 +355,8 @@ static void handleSettingsPost() {
         sendJsonError(400, errorText);
         return;
       }
-      if (integer < 0 || integer > 65535) { // Keeps the value inside the 16 bit field
+      long maxValue = (name == "summary_hour") ? 255 : 65535; // Keeps the value inside its field (8 or 16 bit)
+      if (integer < 0 || integer > maxValue) {
         snprintf(errorText, sizeof(errorText), "%s is out of range", name.c_str());
         sendJsonError(400, errorText);
         return;
